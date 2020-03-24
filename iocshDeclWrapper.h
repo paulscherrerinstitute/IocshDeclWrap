@@ -5,38 +5,6 @@
 #include <iocsh.h>
 #include <initializer_list>
 
-class IocshFuncWrapperBase {
-private:
-	iocshFuncDef  *funcDef;
-
-protected:
-	iocshArg      **args;
-
-public:
-	IocshFuncWrapperBase(const char *name, unsigned nargs)
-	{
-	}
-
-	void registr(iocshCallFunc callFunc)
-	{
-		iocshRegister( funcDef, callFunc );
-		funcDef = 0;
-	}
-
-
-	~IocshFuncWrapperBase()
-	{
-		if ( funcDef ) {
-			delete    funcDef->name;
-			for ( int i = 0; i < funcDef->nargs; i++ ) {
-				delete funcDef->arg[i];
-			}
-			delete [] funcDef->arg;
-			delete    funcDef;
-		}
-	}
-};
-
 template <typename T> 
 void iocshFuncWrapperSetArg(iocshArg *arg);
 
