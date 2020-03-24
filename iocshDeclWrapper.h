@@ -5,21 +5,38 @@
 #include <iocsh.h>
 #include <initializer_list>
 
+/*
+ * Set argument type and default name in iocshArg for type 'T'.
+ * This template is to be specialized for multiple 'T'.
+ */
 template <typename T> 
 void iocshFuncWrapperSetArg(iocshArg *arg);
 
+/*
+ * Extract type 'T' from iocshArgBuf.
+ * This template is to be specialized for multiple 'T'.
+ */
 template <typename T>
 T iocshFuncWrapperGetArg(const iocshArgBuf *);
 
+/*
+ * Allocate a new iocshArg struct and call
+ * iocshFuncWrapperSetArg() for type 'T'
+ */
 template <typename T> 
 iocshArg *iocshFuncWrapperMakeArg()
 {
-iocshArg *rval = new iocshArg;
+	iocshArg *rval = new iocshArg;
+
 	rval->name = 0;
 	iocshFuncWrapperSetArg<T>( rval );
 	return rval;
 }
 
+/*
+ * Template specializations for basic arithmetic types
+ * and strings.
+ */
 template <>
 void iocshFuncWrapperSetArg<const char *>(iocshArg *a)
 {
@@ -94,20 +111,63 @@ iocshFuncDef  *iocshFuncWrapperBuildArgs( const char *fname, R (*f)(A...), std::
 	return funcDef;
 }
 
+/*
+ * Helper struct to build a parameter pack of integers for indexing
+ * 'iocshArgBuf'.
+ * This is necessary because the order in which arguments passed
+ * to a function is not defined; we therefore cannot simply
+ * expand
+ *
+ *  f( iocshFuncWrapperGetArg<A>( args++ )... )
+ *
+ * because we don't know in which order A... will be evaluated.
+ */
+template <typename ...A> struct IocshFuncWrapperArgOrder {
+
+	template <int ... I> struct Index {
+		/* Once we have a pair of parameter packs: A... I... we can expand */
+		template <typename R> static void dispatch(R (*f)(A...), const iocshArgBuf *args)
+		{
+			f( iocshFuncWrapperGetArg<A>( &args[I] )... );
+		}
+	};
+
+	/* Recursively build I... */
+	template <int i, int ...I> struct C {
+		template <typename R> static void concat(R (*f)(A...), const iocshArgBuf *args)
+		{
+			C<i-1, i-1, I...>::concat(f, args);
+		}
+	};
+
+	/* Specialization for terminating the recursion */
+	template <int ...I> struct C<0, I...> {
+		template <typename R> static void concat(R (*f)(A...), const iocshArgBuf *args)
+		{
+			Index<I...>::dispatch(f, args);
+		}
+	};
+
+	/* Build index pack and dispatch 'f' */
+	template <typename R> static void arrange( R(*f)(A...), const iocshArgBuf *args)
+	{
+		C<sizeof...(A)>::concat( f, args );
+	}
+};
+
 template <typename R, typename ...A>
 static void
-dispatch(R (*f)(A...), const iocshArgBuf *args)
+iocshFuncWrapperDispatch(R (*f)(A...), const iocshArgBuf *args)
 {
-	// FIXME: order of arg. evaluation undefined
-		f( iocshFuncWrapperGetArg<A>( args++ )... );
+	IocshFuncWrapperArgOrder<A...>::arrange( f, args );
 }
 
 template <typename RR, RR *p> void iocshFuncWrapperCall(const iocshArgBuf *args)
 {
-	dispatch(p, args);
+	iocshFuncWrapperDispatch(p, args);
 }
 
-#define R(x,argHelps...) do {\
+#define IOCSH_FUNC_WRAP(x,argHelps...) do {\
 	iocshRegister( iocshFuncWrapperBuildArgs( #x, x, { argHelps } ), iocshFuncWrapperCall<decltype(x), x> ); \
   } while (0)
 
