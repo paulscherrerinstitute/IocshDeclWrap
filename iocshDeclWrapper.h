@@ -3,6 +3,7 @@
 
 #include <epicsString.h>
 #include <iocsh.h>
+#include <string>
 
 /* Helper templates that automate the generation of infamous boiler-plate code
  * which is necessary to wrap a user function for iocsh:
@@ -48,6 +49,7 @@
  *
  */
 
+struct IocshFuncWrapperContext;
 
 /*
  * Set argument type and default name in iocshArg for type 'T'.
@@ -61,7 +63,7 @@ void iocshFuncWrapperSetArg(iocshArg *arg);
  * This template is to be specialized for multiple 'T'.
  */
 template <typename T>
-T iocshFuncWrapperGetArg(const iocshArgBuf *);
+T iocshFuncWrapperGetArg(const iocshArgBuf *, IocshFuncWrapperContext *);
 
 /*
  * Allocate a new iocshArg struct and call
@@ -72,8 +74,11 @@ iocshArg *iocshFuncWrapperMakeArg(const char *aname = 0)
 {
 	iocshArg *rval = new iocshArg;
 
-	rval->name = aname;
+	rval->name = 0;
 	iocshFuncWrapperSetArg<T>( rval );
+	if ( aname ) {
+		rval->name = aname;
+	}
 	return rval;
 }
 
@@ -82,31 +87,107 @@ iocshArg *iocshFuncWrapperMakeArg(const char *aname = 0)
  * and strings.
  */
 template <>
-void iocshFuncWrapperSetArg<const char *>(iocshArg *a)
+void iocshFuncWrapperSetArg<std::string&>(iocshArg *a)
 {
-	if ( ! a->name ) {
-		a->name = "<string>";
-	}
+	a->name = "<string>";
 	a->type = iocshArgString;
 }
 
 template <>
-const char * iocshFuncWrapperGetArg<const char *>(const iocshArgBuf *arg)
+std::string& iocshFuncWrapperGetArg<std::string&>(const iocshArgBuf *arg, IocshFuncWrapperContext *ctx)
+{
+	std::string *sp = new std::string( arg->sval );
+	return *sp;
+}
+
+template <>
+void iocshFuncWrapperSetArg<std::string>(iocshArg *a)
+{
+	a->name = "<string>";
+	a->type = iocshArgString;
+}
+
+template <>
+std::string iocshFuncWrapperGetArg<std::string>(const iocshArgBuf *arg, IocshFuncWrapperContext *ctx)
+{
+	return std::string( arg->sval );
+}
+
+template <>
+void iocshFuncWrapperSetArg<const char *>(iocshArg *a)
+{
+	a->name = "<string>";
+	a->type = iocshArgString;
+}
+
+template <>
+const char * iocshFuncWrapperGetArg<const char *>(const iocshArgBuf *arg, IocshFuncWrapperContext *ctx)
 {
 	return arg->sval;
 }
 
 template <>
-void iocshFuncWrapperSetArg<int>(iocshArg *a)
+void iocshFuncWrapperSetArg<char>(iocshArg *a)
 {
-	if ( ! a->name ) {
-		a->name = "<int>";
-	}
+	a->name = "<char>";
 	a->type = iocshArgInt;
 }
 
 template <>
-int iocshFuncWrapperGetArg<int>(const iocshArgBuf *arg)
+char iocshFuncWrapperGetArg<char>(const iocshArgBuf *arg, IocshFuncWrapperContext *ctx)
+{
+	return (char)arg->ival;
+}
+
+template <>
+void iocshFuncWrapperSetArg<unsigned char>(iocshArg *a)
+{
+	a->name = "<uchar>";
+	a->type = iocshArgInt;
+}
+
+template <>
+unsigned char iocshFuncWrapperGetArg<unsigned char>(const iocshArgBuf *arg, IocshFuncWrapperContext *ctx)
+{
+	return (unsigned char)arg->ival;
+}
+
+template <>
+void iocshFuncWrapperSetArg<short>(iocshArg *a)
+{
+	a->name = "<short>";
+	a->type = iocshArgInt;
+}
+
+template <>
+short iocshFuncWrapperGetArg<short>(const iocshArgBuf *arg, IocshFuncWrapperContext *ctx)
+{
+	return (short)arg->ival;
+}
+
+template <>
+void iocshFuncWrapperSetArg<unsigned short>(iocshArg *a)
+{
+	a->name = "<ushort>";
+	a->type = iocshArgInt;
+}
+
+template <>
+unsigned short iocshFuncWrapperGetArg<unsigned short>(const iocshArgBuf *arg, IocshFuncWrapperContext *ctx)
+{
+	return (unsigned short)arg->ival;
+}
+
+
+template <>
+void iocshFuncWrapperSetArg<int>(iocshArg *a)
+{
+	a->name = "<int>";
+	a->type = iocshArgInt;
+}
+
+template <>
+int iocshFuncWrapperGetArg<int>(const iocshArgBuf *arg, IocshFuncWrapperContext *ctx)
 {
 	return arg->ival;
 }
@@ -114,16 +195,40 @@ int iocshFuncWrapperGetArg<int>(const iocshArgBuf *arg)
 template <>
 void iocshFuncWrapperSetArg<unsigned int>(iocshArg *a)
 {
-	if ( ! a->name ) {
-		a->name = "<uint>";
-	}
+	a->name = "<uint>";
 	a->type = iocshArgInt;
 }
 
 template <>
-unsigned int iocshFuncWrapperGetArg<unsigned int>(const iocshArgBuf *arg)
+unsigned int iocshFuncWrapperGetArg<unsigned int>(const iocshArgBuf *arg, IocshFuncWrapperContext *ctx)
 {
 	return arg->ival;
+}
+
+template <>
+void iocshFuncWrapperSetArg<double>(iocshArg *a)
+{
+	a->name = "<double>";
+	a->type = iocshArgDouble;
+}
+
+template <>
+double iocshFuncWrapperGetArg<double>(const iocshArgBuf *arg, IocshFuncWrapperContext *ctx)
+{
+	return arg->dval;
+}
+
+template <>
+void iocshFuncWrapperSetArg<float>(iocshArg *a)
+{
+	a->name = "<float>";
+	a->type = iocshArgDouble;
+}
+
+template <>
+float iocshFuncWrapperGetArg<float>(const iocshArgBuf *arg, IocshFuncWrapperContext *ctx)
+{
+	return (float)arg->dval;
 }
 
 class IocshFuncWrapperDef {
@@ -233,7 +338,8 @@ template <typename ...A> struct IocshFuncWrapperArgOrder {
 		/* Once we have a pair of parameter packs: A... I... we can expand */
 		template <typename R> static void dispatch(R (*f)(A...), const iocshArgBuf *args)
 		{
-			f( iocshFuncWrapperGetArg<A>( &args[I] )... );
+			IocshFuncWrapperContext ctx;
+			f( iocshFuncWrapperGetArg<A>( &args[I], &ctx )... );
 		}
 	};
 

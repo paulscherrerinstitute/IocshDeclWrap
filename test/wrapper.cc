@@ -5,10 +5,27 @@
 #include <errlog.h>
 #include <iocshDeclWrapper.h>
 #include <epicsExport.h>
+#include <string>
 
 
 static int testFailed = 0;
 static int testPassed = 0;
+
+void myString(std::string s)
+{
+	printf("my STRING %s\n", s.c_str());
+}
+
+void myStringr(std::string &s)
+{
+	printf("my STRINGr %s\n", s.c_str());
+}
+
+void mycString(const std::string s)
+{
+	printf("my const STRING %s\n", s.c_str());
+}
+
 
 extern "C" void myNoarg()
 {
@@ -18,6 +35,11 @@ extern "C" void myNoarg()
 extern "C" void myVoidarg()
 {
 	printf("my VOIDARG\n");
+}
+
+extern "C" void myFloat(float a)
+{
+	printf("my FLOAT: %f\n", a);
 }
 
 
@@ -206,6 +228,10 @@ IOCSH_FUNC_WRAP_REGISTRAR(wrapperRegister,
 	IOCSH_FUNC_WRAP( c9, "h1", "h2", "h3", "h4", "h5", "h6", "h7", "h8", "h9", "h10" );
 	IOCSH_FUNC_WRAP( c10, "h1", "h2", "h3", "h4", "h5", "h6", "h7", "h8", "h9", "h10");
 	IOCSH_FUNC_WRAP( testCheck );
+	IOCSH_FUNC_WRAP( myFloat   );
+	IOCSH_FUNC_WRAP( myString  );
+	IOCSH_FUNC_WRAP( mycString  );
+	IOCSH_FUNC_WRAP( myStringr );
 )
 
 epicsExportAddress(int, testPassed);
