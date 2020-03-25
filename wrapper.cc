@@ -4,11 +4,8 @@
 #include <epicsThread.h>
 #include <errlog.h>
 
-extern "C" void hello(const char *);
-
 static int testFailed = 0;
 static int testPassed = 0;
-
 
 extern "C" void myNoarg()
 {
@@ -191,7 +188,6 @@ void testCheck()
 using namespace IocshDeclWrapperTest;
 
 IOCSH_FUNC_WRAP_REGISTRAR(wrapperRegister,
-	IOCSH_FUNC_WRAP( hello );
 	IOCSH_FUNC_WRAP( myHello );
 	IOCSH_FUNC_WRAP( myFuncInt );
 	IOCSH_FUNC_WRAP( myFuncUInt );
