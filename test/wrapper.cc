@@ -3,6 +3,9 @@
 #include <epicsExit.h>
 #include <epicsThread.h>
 #include <errlog.h>
+#include <iocshDeclWrapper.h>
+#include <epicsExport.h>
+
 
 static int testFailed = 0;
 static int testPassed = 0;
@@ -181,9 +184,6 @@ void testCheck()
 }
 
 };
-
-#include <inc/iocshDeclWrapper.h>
-#include <epicsExport.h>
 
 using namespace IocshDeclWrapperTest;
 
