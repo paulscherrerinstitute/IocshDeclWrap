@@ -1,0 +1,3 @@
+registrar(wrapperRegister)
+variable(testPassed)
+variable(testFailed)
