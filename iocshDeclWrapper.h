@@ -6,13 +6,19 @@
 
 /* Helper templates that automate generation of infamous boiler-plate code
  * that is necessary to wrap a user function for iocsh:
+ *
  *  - a iocshFuncDef needs to be created and populated
  *  - an array of iocshArg pointers needs to be generated and populated
  *  - a wrapper needs to be written that extracts arguments from a iocshArgBuf
  *    and forwards them to the user function.
  *  - the 'iocshFuncDef' and wrapper need to be registered with iocsh
  *
- * Using the templates defined in this file makes this easy:
+ * NOTE: when compiling according to the c++98 standard the function that
+ *       you want to wrap must have *external linkage*. This restriction
+ *       was removed for c++11. (The function is used as a non-type template
+ *       argument; ISO/IEC 14882: 14.3.2.1)
+ *
+ * Using the templates defined in this file makes the process easy:
  *
  * Assume you want to access
  *
@@ -25,8 +31,20 @@
  * Additional arguments may be added to provide 'help strings' describing the
  * function arguments:
  *
- *   IOCSH_FUNC_WRAP( myDebugFunc, "string prefix", "int debug level", "int bit mask" );
+ *   IOCSH_FUNC_WRAP( myDebugFunc, "string_prefix", "int_debug-level", "int_bit-mask" );
+ *
+ * There is also a helper macro to define a registrar:
+ *
+ *  IOCSH_FUNC_WRAP_REGISTRAR( myRegistrar,
+ *      IOCSH_FUNC_WRAP( myFirstFunction );
+ *      IOCSH_FUNC_WRAP( myOtherFunction );
+ *  )
+ *
+ * NOTE: you also need to add a line to your dbd file:
+ *
+ *  registrar( myRegistrar )
  */
+
 
 /*
  * Set argument type and default name in iocshArg for type 'T'.
@@ -791,18 +809,6 @@ IocshFuncWrapperCaller<R,void,void,void,void,void,void,void,void,void,void> iocs
 	} while (0)
 
 #endif /* __cplusplus >= 201103L */
-
-/*
- * Helper macro to define a registrar:
- *
- *  IOCSH_FUNC_WRAP_REGISTAR( myRegistrar,
- *      IOCSH_FUNC_WRAP( myFirstFunction );
- *      IOCSH_FUNC_WRAP( myOtherFunction );
- *  )
- *
- * NOTE: you also need to add a line to your dbd file:
- *  registrar( myRegistrar )
- */
 
 #define IOCSH_FUNC_WRAP_REGISTRAR( registrarName, wrappers... ) \
 static void registrarName() \
