@@ -26,6 +26,17 @@ void mycString(const std::string s)
 	printf("my const STRING %s\n", s.c_str());
 }
 
+void myStringp(std::string *s)
+{
+	printf("my STRINGp %s\n", s ? s->c_str() : "<NULL>");
+}
+
+void mycStringp(const std::string *s)
+{
+	printf("my cSTRINGp %s\n", s ? s->c_str() : "<NULL>");
+}
+
+
 
 extern "C" void myNoarg()
 {
@@ -43,7 +54,7 @@ extern "C" void myFloat(float a)
 }
 
 
-extern "C" void myHello(const char *m)
+extern "C" void myHello(char *m)
 {
 	printf("From my hello: %s\n", m);
 }
@@ -227,11 +238,13 @@ IOCSH_FUNC_WRAP_REGISTRAR(wrapperRegister,
 	IOCSH_FUNC_WRAP( c8, "h1", "h2" );
 	IOCSH_FUNC_WRAP( c9, "h1", "h2", "h3", "h4", "h5", "h6", "h7", "h8", "h9", "h10" );
 	IOCSH_FUNC_WRAP( c10, "h1", "h2", "h3", "h4", "h5", "h6", "h7", "h8", "h9", "h10");
-	IOCSH_FUNC_WRAP( testCheck );
-	IOCSH_FUNC_WRAP( myFloat   );
-	IOCSH_FUNC_WRAP( myString  );
+	IOCSH_FUNC_WRAP( testCheck  );
+	IOCSH_FUNC_WRAP( myFloat    );
+	IOCSH_FUNC_WRAP( myString   );
 	IOCSH_FUNC_WRAP( mycString  );
-	IOCSH_FUNC_WRAP( myStringr );
+	IOCSH_FUNC_WRAP( myStringr  );
+	IOCSH_FUNC_WRAP( myStringp  );
+	IOCSH_FUNC_WRAP( mycStringp );
 )
 
 epicsExportAddress(int, testPassed);
