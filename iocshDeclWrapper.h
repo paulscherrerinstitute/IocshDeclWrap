@@ -4,19 +4,14 @@
 #include <epicsString.h>
 #include <iocsh.h>
 
-/* Helper templates that automate generation of infamous boiler-plate code
- * that is necessary to wrap a user function for iocsh:
+/* Helper templates that automate the generation of infamous boiler-plate code
+ * which is necessary to wrap a user function for iocsh:
  *
  *  - a iocshFuncDef needs to be created and populated
  *  - an array of iocshArg pointers needs to be generated and populated
  *  - a wrapper needs to be written that extracts arguments from a iocshArgBuf
  *    and forwards them to the user function.
  *  - the 'iocshFuncDef' and wrapper need to be registered with iocsh
- *
- * NOTE: when compiling according to the c++98 standard the function that
- *       you want to wrap must have *external linkage*. This restriction
- *       was removed for c++11. (The function is used as a non-type template
- *       argument; ISO/IEC 14882: 14.3.2.1)
  *
  * Using the templates defined in this file makes the process easy:
  *
@@ -43,6 +38,14 @@
  * NOTE: you also need to add a line to your dbd file:
  *
  *  registrar( myRegistrar )
+ *
+ *******************************************************************************
+ * NOTE: when compiling according to the c++98 standard the function that
+ *       you want to wrap must have *external linkage*. This restriction
+ *       was removed for c++11. (The function is used as a non-type template
+ *       argument; ISO/IEC 14882: 14.3.2.1)
+ *******************************************************************************
+ *
  */
 
 
