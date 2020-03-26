@@ -116,7 +116,8 @@ The templates handle the passing of arguments between
 `iocshArgBuf` and the user function. This is implemented
 by template specializations for specific types. The
 standard integral types as well as `char*` (C-strings),
-`std::string`, `double` and `float` are already implemented.
+`std::string`, `double`, `float` and `std::complex` are
+already implemented.
 
 If a particular type cannot be handled by the existing
 templates then the you can easily define your own
@@ -141,6 +142,16 @@ specialization:
          return convert_to_MYTYPE( arg );
       }
     };
+
+### Handling Conversion Errors
+
+In some cases `getArg` cannot convert a value. E.g., when converting
+from a string argument and the string is NULL or ill-formatted.
+
+In this case `getArg` may throw a `IocshFuncWrapper::ConversionError`
+which is caught and results in an error message to be printed to
+the console. The user function is not executed if such an error
+is thrown.
 
 ### `Convert::getArg Context`
 

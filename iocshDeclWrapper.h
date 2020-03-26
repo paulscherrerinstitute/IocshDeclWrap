@@ -6,9 +6,12 @@
 #endif
 
 #include <epicsString.h>
+#include <errlog.h>
 #include <iocsh.h>
 #include <string>
+#include <stdexcept>
 #include <vector>
+#include <complex>
 #include <stdlib.h>
 
 /* Helper templates that automate the generation of infamous boiler-plate code
@@ -154,6 +157,19 @@ public:
 	}
 };
 
+class ConversionError : public std::runtime_error {
+public:
+	ConversionError( const std::string & msg )
+	: runtime_error( msg )
+	{
+	}
+
+	ConversionError( const char * msg )
+	: runtime_error( std::string( msg ) )
+	{
+	}
+};
+
 /*
  * Converter to map between user function arguments and iocshArg/iocshArgBuf
  */
@@ -165,6 +181,8 @@ template <typename T, typename R> struct Convert {
 	/*
 	 * Retrieve argument from iocshArgBuf and convert into
 	 * target type 'R'. May allocate objects in 'Context'.
+	 *
+	 * May throw 'ConversionError'.
 	 */
 	static R    getArg(const iocshArgBuf *, Context *);
 };
@@ -331,6 +349,42 @@ template <typename T> struct Convert<T, typename is_flt<T>::type> {
 	}
 };
 
+template <typename T> struct is_cplx;
+template <> struct is_cplx< std::complex<float> > {
+	typedef std::complex<float> type;
+	static const char          *fmt() { return "%g j %g"; }
+};
+
+template <> struct is_cplx< std::complex<double> > {
+	typedef std::complex<double> type;
+	static const char           *fmt() { return "%lg j %lg"; }
+};
+
+template <> struct is_cplx< std::complex<long double> > {
+	typedef std::complex<long double> type;
+	static const char                *fmt() { return "%llg j %llg"; }
+};
+
+/* Specialization for std::complex */
+template <typename T> struct Convert<T, typename is_cplx<T>::type> {
+	typedef typename is_cplx<T>::type type;
+
+	static void setArg(iocshArg *a)
+	{
+		a->name = "complex number as string: \"<real> j <imag>\"";
+		a->type = iocshArgString;
+	}
+
+	static type getArg(const iocshArgBuf *a, Context *ctx)
+	{
+		typename type::value_type r, i;
+		if ( ! a->sval || 2 != sscanf( a->sval, is_cplx<T>::fmt(), &r, &i ) ) {
+			throw ConversionError("unable to scan argument into '%g j %g' format");
+		}
+		return type( r, i );
+	}
+};
+
 /*
  * Helper class for building a iocshFuncDef
  */
@@ -448,7 +502,11 @@ template <typename ...A> struct ArgOrder {
 		template <typename R> static void dispatch(R (*f)(A...), const iocshArgBuf *args)
 		{
 			IocshFuncWrapper::Context ctx;
-			f( IocshFuncWrapper::Convert<A,A>::getArg( &args[I], &ctx )... );
+			try {
+				f( IocshFuncWrapper::Convert<A,A>::getArg( &args[I], &ctx )... );
+			} catch ( ConversionError &e ) {
+				errlogPrintf( "Error: Invalid Argument -- %s\n", e.what() );
+			}
 		}
 	};
 
@@ -498,7 +556,6 @@ template <typename RR, RR *p> void call(const iocshArgBuf *args)
 #else  /* __cplusplus < 201103L */
 
 namespace IocshFuncWrapper {
-
 
 /* 
  * See C++11 version for comments...
@@ -589,6 +646,15 @@ done:
  * supported max. - 1); see below...
  */
 
+#define IOCSH_DECL_WRAPPER_DO_CALL(args...)                \
+	do {                                                   \
+		try {                                              \
+			func( args );                                  \
+		} catch ( IocshFuncWrapper::ConversionError &e ) { \
+			errlogPrintf( "Error: Invalid Argument -- %s\n", e.what() ); \
+		}                                                  \
+	} while (0)
+
 template <typename R, typename A0, typename A1, typename A2, typename A3, typename A4,
                       typename A5, typename A6, typename A7, typename A8, typename A9>
 class Caller
@@ -628,16 +694,18 @@ public:
 	template <type func> static void call(const iocshArgBuf *args)
 	{
 		IocshFuncWrapper::Context ctx;
-		func( IocshFuncWrapper::Convert<A0,A0>::getArg( &args[0], &ctx ),
-		      IocshFuncWrapper::Convert<A1,A1>::getArg( &args[1], &ctx ),
-		      IocshFuncWrapper::Convert<A2,A2>::getArg( &args[2], &ctx ),
-		      IocshFuncWrapper::Convert<A3,A3>::getArg( &args[3], &ctx ),
-		      IocshFuncWrapper::Convert<A4,A4>::getArg( &args[4], &ctx ),
-		      IocshFuncWrapper::Convert<A5,A5>::getArg( &args[5], &ctx ),
-		      IocshFuncWrapper::Convert<A6,A6>::getArg( &args[6], &ctx ),
-		      IocshFuncWrapper::Convert<A7,A7>::getArg( &args[7], &ctx ),
-		      IocshFuncWrapper::Convert<A8,A8>::getArg( &args[8], &ctx ),
-		      IocshFuncWrapper::Convert<A9,A9>::getArg( &args[9], &ctx ) );
+		IOCSH_DECL_WRAPPER_DO_CALL(
+			IocshFuncWrapper::Convert<A0,A0>::getArg( &args[0], &ctx ),
+			IocshFuncWrapper::Convert<A1,A1>::getArg( &args[1], &ctx ),
+			IocshFuncWrapper::Convert<A2,A2>::getArg( &args[2], &ctx ),
+			IocshFuncWrapper::Convert<A3,A3>::getArg( &args[3], &ctx ),
+			IocshFuncWrapper::Convert<A4,A4>::getArg( &args[4], &ctx ),
+			IocshFuncWrapper::Convert<A5,A5>::getArg( &args[5], &ctx ),
+			IocshFuncWrapper::Convert<A6,A6>::getArg( &args[6], &ctx ),
+			IocshFuncWrapper::Convert<A7,A7>::getArg( &args[7], &ctx ),
+			IocshFuncWrapper::Convert<A8,A8>::getArg( &args[8], &ctx ),
+			IocshFuncWrapper::Convert<A9,A9>::getArg( &args[9], &ctx )
+		);
 	}
 };
 
@@ -663,15 +731,17 @@ public:
 	template <type func> static void call(const iocshArgBuf *args)
 	{
 		IocshFuncWrapper::Context ctx;
-		func( IocshFuncWrapper::Convert<A0,A0>::getArg( &args[0], &ctx ),
-		      IocshFuncWrapper::Convert<A1,A1>::getArg( &args[1], &ctx ),
-		      IocshFuncWrapper::Convert<A2,A2>::getArg( &args[2], &ctx ),
-		      IocshFuncWrapper::Convert<A3,A3>::getArg( &args[3], &ctx ),
-		      IocshFuncWrapper::Convert<A4,A4>::getArg( &args[4], &ctx ),
-		      IocshFuncWrapper::Convert<A5,A5>::getArg( &args[5], &ctx ),
-		      IocshFuncWrapper::Convert<A6,A6>::getArg( &args[6], &ctx ),
-		      IocshFuncWrapper::Convert<A7,A7>::getArg( &args[7], &ctx ),
-		      IocshFuncWrapper::Convert<A8,A8>::getArg( &args[8], &ctx ) );
+		IOCSH_DECL_WRAPPER_DO_CALL(
+			IocshFuncWrapper::Convert<A0,A0>::getArg( &args[0], &ctx ),
+			IocshFuncWrapper::Convert<A1,A1>::getArg( &args[1], &ctx ),
+			IocshFuncWrapper::Convert<A2,A2>::getArg( &args[2], &ctx ),
+			IocshFuncWrapper::Convert<A3,A3>::getArg( &args[3], &ctx ),
+			IocshFuncWrapper::Convert<A4,A4>::getArg( &args[4], &ctx ),
+			IocshFuncWrapper::Convert<A5,A5>::getArg( &args[5], &ctx ),
+			IocshFuncWrapper::Convert<A6,A6>::getArg( &args[6], &ctx ),
+			IocshFuncWrapper::Convert<A7,A7>::getArg( &args[7], &ctx ),
+			IocshFuncWrapper::Convert<A8,A8>::getArg( &args[8], &ctx )
+		);
 	}
 };
 
@@ -697,14 +767,16 @@ public:
 	template <type func> static void call(const iocshArgBuf *args)
 	{
 		IocshFuncWrapper::Context ctx;
-		func( IocshFuncWrapper::Convert<A0,A0>::getArg( &args[0], &ctx ),
-		      IocshFuncWrapper::Convert<A1,A1>::getArg( &args[1], &ctx ),
-		      IocshFuncWrapper::Convert<A2,A2>::getArg( &args[2], &ctx ),
-		      IocshFuncWrapper::Convert<A3,A3>::getArg( &args[3], &ctx ),
-		      IocshFuncWrapper::Convert<A4,A4>::getArg( &args[4], &ctx ),
-		      IocshFuncWrapper::Convert<A5,A5>::getArg( &args[5], &ctx ),
-		      IocshFuncWrapper::Convert<A6,A6>::getArg( &args[6], &ctx ),
-		      IocshFuncWrapper::Convert<A7,A7>::getArg( &args[7], &ctx ) );
+		IOCSH_DECL_WRAPPER_DO_CALL(
+			IocshFuncWrapper::Convert<A0,A0>::getArg( &args[0], &ctx ),
+			IocshFuncWrapper::Convert<A1,A1>::getArg( &args[1], &ctx ),
+			IocshFuncWrapper::Convert<A2,A2>::getArg( &args[2], &ctx ),
+			IocshFuncWrapper::Convert<A3,A3>::getArg( &args[3], &ctx ),
+			IocshFuncWrapper::Convert<A4,A4>::getArg( &args[4], &ctx ),
+			IocshFuncWrapper::Convert<A5,A5>::getArg( &args[5], &ctx ),
+			IocshFuncWrapper::Convert<A6,A6>::getArg( &args[6], &ctx ),
+			IocshFuncWrapper::Convert<A7,A7>::getArg( &args[7], &ctx )
+		);
 	}
 };
 
@@ -730,13 +802,15 @@ public:
 	template <type func> static void call(const iocshArgBuf *args)
 	{
 		IocshFuncWrapper::Context ctx;
-		func( IocshFuncWrapper::Convert<A0,A0>::getArg( &args[0], &ctx ),
-		      IocshFuncWrapper::Convert<A1,A1>::getArg( &args[1], &ctx ),
-		      IocshFuncWrapper::Convert<A2,A2>::getArg( &args[2], &ctx ),
-		      IocshFuncWrapper::Convert<A3,A3>::getArg( &args[3], &ctx ),
-		      IocshFuncWrapper::Convert<A4,A4>::getArg( &args[4], &ctx ),
-		      IocshFuncWrapper::Convert<A5,A5>::getArg( &args[5], &ctx ),
-		      IocshFuncWrapper::Convert<A6,A6>::getArg( &args[6], &ctx ) );
+		IOCSH_DECL_WRAPPER_DO_CALL(
+			IocshFuncWrapper::Convert<A0,A0>::getArg( &args[0], &ctx ),
+			IocshFuncWrapper::Convert<A1,A1>::getArg( &args[1], &ctx ),
+			IocshFuncWrapper::Convert<A2,A2>::getArg( &args[2], &ctx ),
+			IocshFuncWrapper::Convert<A3,A3>::getArg( &args[3], &ctx ),
+			IocshFuncWrapper::Convert<A4,A4>::getArg( &args[4], &ctx ),
+			IocshFuncWrapper::Convert<A5,A5>::getArg( &args[5], &ctx ),
+			IocshFuncWrapper::Convert<A6,A6>::getArg( &args[6], &ctx )
+		);
 	}
 };
 
@@ -762,12 +836,14 @@ public:
 	template <type func> static void call(const iocshArgBuf *args)
 	{
 		IocshFuncWrapper::Context ctx;
-		func( IocshFuncWrapper::Convert<A0,A0>::getArg( &args[0], &ctx ),
-		      IocshFuncWrapper::Convert<A1,A1>::getArg( &args[1], &ctx ),
-		      IocshFuncWrapper::Convert<A2,A2>::getArg( &args[2], &ctx ),
-		      IocshFuncWrapper::Convert<A3,A3>::getArg( &args[3], &ctx ),
-		      IocshFuncWrapper::Convert<A4,A4>::getArg( &args[4], &ctx ),
-		      IocshFuncWrapper::Convert<A5,A5>::getArg( &args[5], &ctx ) );
+		IOCSH_DECL_WRAPPER_DO_CALL(
+			IocshFuncWrapper::Convert<A0,A0>::getArg( &args[0], &ctx ),
+			IocshFuncWrapper::Convert<A1,A1>::getArg( &args[1], &ctx ),
+			IocshFuncWrapper::Convert<A2,A2>::getArg( &args[2], &ctx ),
+			IocshFuncWrapper::Convert<A3,A3>::getArg( &args[3], &ctx ),
+			IocshFuncWrapper::Convert<A4,A4>::getArg( &args[4], &ctx ),
+			IocshFuncWrapper::Convert<A5,A5>::getArg( &args[5], &ctx )
+		);
 	}
 };
 
@@ -792,11 +868,13 @@ public:
 	template <type func> static void call(const iocshArgBuf *args)
 	{
 		IocshFuncWrapper::Context ctx;
-		func( IocshFuncWrapper::Convert<A0,A0>::getArg( &args[0], &ctx ),
-		      IocshFuncWrapper::Convert<A1,A1>::getArg( &args[1], &ctx ),
-		      IocshFuncWrapper::Convert<A2,A2>::getArg( &args[2], &ctx ),
-		      IocshFuncWrapper::Convert<A3,A3>::getArg( &args[3], &ctx ),
-		      IocshFuncWrapper::Convert<A4,A4>::getArg( &args[4], &ctx ) );
+		IOCSH_DECL_WRAPPER_DO_CALL(
+			IocshFuncWrapper::Convert<A0,A0>::getArg( &args[0], &ctx ),
+			IocshFuncWrapper::Convert<A1,A1>::getArg( &args[1], &ctx ),
+			IocshFuncWrapper::Convert<A2,A2>::getArg( &args[2], &ctx ),
+			IocshFuncWrapper::Convert<A3,A3>::getArg( &args[3], &ctx ),
+			IocshFuncWrapper::Convert<A4,A4>::getArg( &args[4], &ctx )
+		);
 	}
 };
 
@@ -821,10 +899,12 @@ public:
 	template <type func> static void call(const iocshArgBuf *args)
 	{
 		IocshFuncWrapper::Context ctx;
-		func( IocshFuncWrapper::Convert<A0,A0>::getArg( &args[0], &ctx ),
-		      IocshFuncWrapper::Convert<A1,A1>::getArg( &args[1], &ctx ),
-		      IocshFuncWrapper::Convert<A2,A2>::getArg( &args[2], &ctx ),
-		      IocshFuncWrapper::Convert<A3,A3>::getArg( &args[3], &ctx ) );
+		IOCSH_DECL_WRAPPER_DO_CALL(
+			IocshFuncWrapper::Convert<A0,A0>::getArg( &args[0], &ctx ),
+			IocshFuncWrapper::Convert<A1,A1>::getArg( &args[1], &ctx ),
+			IocshFuncWrapper::Convert<A2,A2>::getArg( &args[2], &ctx ),
+			IocshFuncWrapper::Convert<A3,A3>::getArg( &args[3], &ctx )
+		);
 	}
 };
 
@@ -849,9 +929,11 @@ public:
 	template <type func> static void call(const iocshArgBuf *args)
 	{
 		IocshFuncWrapper::Context ctx;
-		func( IocshFuncWrapper::Convert<A0,A0>::getArg( &args[0], &ctx ),
-		      IocshFuncWrapper::Convert<A1,A1>::getArg( &args[1], &ctx ),
-		      IocshFuncWrapper::Convert<A2,A2>::getArg( &args[2], &ctx ) );
+		IOCSH_DECL_WRAPPER_DO_CALL(
+			IocshFuncWrapper::Convert<A0,A0>::getArg( &args[0], &ctx ),
+			IocshFuncWrapper::Convert<A1,A1>::getArg( &args[1], &ctx ),
+			IocshFuncWrapper::Convert<A2,A2>::getArg( &args[2], &ctx )
+		);
 	}
 };
 
@@ -876,8 +958,10 @@ public:
 	template <type func> static void call(const iocshArgBuf *args)
 	{
 		IocshFuncWrapper::Context ctx;
-		func( IocshFuncWrapper::Convert<A0,A0>::getArg( &args[0], &ctx ),
-		      IocshFuncWrapper::Convert<A1,A1>::getArg( &args[1], &ctx ) );
+		IOCSH_DECL_WRAPPER_DO_CALL(
+			IocshFuncWrapper::Convert<A0,A0>::getArg( &args[0], &ctx ),
+			IocshFuncWrapper::Convert<A1,A1>::getArg( &args[1], &ctx )
+		);
 	}
 };
 
@@ -903,7 +987,9 @@ public:
 	template <type func> static void call(const iocshArgBuf *args)
 	{
 		IocshFuncWrapper::Context ctx;
-		func( IocshFuncWrapper::Convert<A0,A0>::getArg( &args[0], &ctx ) );
+		IOCSH_DECL_WRAPPER_DO_CALL(
+			IocshFuncWrapper::Convert<A0,A0>::getArg( &args[0], &ctx )
+		);
 	}
 };
 
@@ -928,7 +1014,7 @@ public:
 
 	template <type func> static void call(const iocshArgBuf *args)
 	{
-		func( );
+		IOCSH_DECL_WRAPPER_DO_CALL( );
 	}
 };
 
@@ -1018,6 +1104,8 @@ Caller<R,void,void,void,void,void,void,void,void,void,void> makeCaller(R (*f)(vo
 {
 	return Caller<R,void,void,void,void,void,void,void,void,void,void>();
 }
+
+#undef IOCSH_DECL_WRAPPER_DO_CALL
 
 }
 

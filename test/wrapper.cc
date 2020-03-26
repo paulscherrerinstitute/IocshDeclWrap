@@ -7,7 +7,7 @@
 #include <epicsExport.h>
 #include <string>
 #include <string.h>
-
+#include <complex>
 
 static int testFailed = 0;
 static int testPassed = 0;
@@ -16,7 +16,7 @@ static int testPassed = 0;
  *  grep 'testPassed[\t]*[+][+]' wrapper.cc  | wc
  * over this file
  */
-#define NUM_TESTS 21
+#define NUM_TESTS 22
 
 void myString(std::string s)
 {
@@ -247,6 +247,12 @@ void testCheck()
 
 };
 
+void myComplex(std::complex<double> val)
+{
+	if ( 1.234 != val.real() || 5.678 != val.imag() ) testFailed++; else testPassed++;
+	printf("myComplex: %g j %g\n", val.real(), val.imag());
+}
+
 using namespace IocshDeclWrapperTest;
 
 IOCSH_FUNC_WRAP_REGISTRAR(wrapperRegister,
@@ -277,6 +283,7 @@ IOCSH_FUNC_WRAP_REGISTRAR(wrapperRegister,
 	IOCSH_FUNC_WRAP( myStringr  );
 	IOCSH_FUNC_WRAP( myStringp  );
 	IOCSH_FUNC_WRAP( mycStringp );
+	IOCSH_FUNC_WRAP( myComplex  );
 )
 
 epicsExportAddress(int, testPassed);

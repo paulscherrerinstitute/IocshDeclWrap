@@ -1,3 +1,6 @@
+1.1.0:
+ - support for std::complex<>
+ - support for throwing and handling ConversionError
 1.0.2:
  - minor cleanup
 1.0.1:
