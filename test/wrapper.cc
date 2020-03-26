@@ -6,37 +6,47 @@
 #include <iocshDeclWrapper.h>
 #include <epicsExport.h>
 #include <string>
+#include <string.h>
 
 
 static int testFailed = 0;
 static int testPassed = 0;
 
+/* run
+ *  grep 'testPassed[\t]*[+][+]' wrapper.cc  | wc
+ * over this file
+ */
+#define NUM_TESTS 21
+
 void myString(std::string s)
 {
+	if ( strcmp( s.c_str(), "myString" ) ) testFailed++; else testPassed++;
 	printf("my STRING %s\n", s.c_str());
 }
 
 void myStringr(std::string &s)
 {
+	if ( strcmp( s.c_str(), "myStringr" ) ) testFailed++; else testPassed++;
 	printf("my STRINGr %s\n", s.c_str());
 }
 
 void mycString(const std::string s)
 {
+	if ( strcmp( s.c_str(), "mycString" ) ) testFailed++; else testPassed++;
 	printf("my const STRING %s\n", s.c_str());
 }
 
 void myStringp(std::string *s)
 {
+	if ( strcmp( s->c_str(), "myStringp" ) ) testFailed++; else testPassed++;
 	printf("my STRINGp %s\n", s ? s->c_str() : "<NULL>");
 }
 
 void mycStringp(const std::string *s)
 {
+	if ( strcmp( s->c_str(), "mycStringp" ) ) testFailed++; else testPassed++;
 	printf("my cSTRINGp %s\n", s ? s->c_str() : "<NULL>");
 }
-
-
 
 extern "C" void myNoarg()
 {
@@ -50,14 +60,34 @@ extern "C" void myVoidarg()
 
 extern "C" void myFloat(float a)
 {
+	if ( a != (float)1.234 ) {
+		printf("Float test FAILED: expected %f, got %f\n", (float)1.234, a);
+		testFailed++;
+	} else {
+		testPassed++;
+	}
 	printf("my FLOAT: %f\n", a);
+}
+
+extern "C" void myDouble(double a)
+{
+	if ( a != 5.678 ) testFailed++; else testPassed++;
+	printf("my DOUBLE: %f\n", a);
 }
 
 
 extern "C" void myHello(char *m)
 {
-	printf("From my hello: %s\n", m);
+	if ( strcmp( m, "myHello" ) ) testFailed++; else testPassed++;
+	printf("From myHello: %s\n", m);
 }
+
+extern "C" void mycHello(const char *m)
+{
+	if ( strcmp( m, "mycHello" ) ) testFailed++; else testPassed++;
+	printf("From mycHello: %s\n", m);
+}
+
 
 extern "C" int myFuncUInt(unsigned int a)
 {
@@ -81,11 +111,10 @@ extern "C" int myFuncInt(int a)
 
 extern "C" int myFuncShort(short a)
 {
+	if ( -3 != a ) testFailed++; else testPassed++;
 	printf("myFuncShort %hi\n", a);
 	return 0;
 }
-
-#define NUM_TESTS 11
 
 extern "C" int c0()
 {
@@ -208,8 +237,8 @@ void testCheck()
 		if ( testFailed ) {
 			errlogPrintf("%d tests FAILED\n", testFailed);
 		}
-		if ( NUM_TESTS != testPassed ) {
-			errlogPrintf("%d tests MISSED\n", NUM_TESTS - testPassed);
+		if ( NUM_TESTS != testPassed + testFailed ) {
+			errlogPrintf("%d tests MISSED\n", NUM_TESTS - testPassed - testFailed);
 		}
 		epicsThreadSleep(0.5);
 		epicsExit(1);
@@ -221,13 +250,15 @@ void testCheck()
 using namespace IocshDeclWrapperTest;
 
 IOCSH_FUNC_WRAP_REGISTRAR(wrapperRegister,
-	IOCSH_FUNC_WRAP( myHello );
-	IOCSH_FUNC_WRAP( myFuncInt );
+	IOCSH_FUNC_WRAP( myHello    );
+	IOCSH_FUNC_WRAP( mycHello   );
+	IOCSH_FUNC_WRAP( myFuncShort);
+	IOCSH_FUNC_WRAP( myFuncInt  );
 	IOCSH_FUNC_WRAP( myFuncUInt );
 	IOCSH_FUNC_WRAP( myFuncU32, "uint32_t" );
-	IOCSH_FUNC_WRAP( myNoarg );
-	IOCSH_FUNC_WRAP( myVoidarg );
-	IOCSH_FUNC_WRAP( c0, "xxx" );
+	IOCSH_FUNC_WRAP( myNoarg    );
+	IOCSH_FUNC_WRAP( myVoidarg  );
+	IOCSH_FUNC_WRAP( c0, "xxx"  );
 	IOCSH_FUNC_WRAP( c1, "h1", "h2", "h3", "h4", "h5", "h6", "h7", "h8", "h9", "h10" );
 	IOCSH_FUNC_WRAP( c2, "h1", "h2", "h3", "h4", "h5", "h6", "h7", "h8", "h9", "h10" );
 	IOCSH_FUNC_WRAP( c3, "h1", "h2", "h3", "h4", "h5", "h6", "h7", "h8", "h9", "h10" );
@@ -240,6 +271,7 @@ IOCSH_FUNC_WRAP_REGISTRAR(wrapperRegister,
 	IOCSH_FUNC_WRAP( c10, "h1", "h2", "h3", "h4", "h5", "h6", "h7", "h8", "h9", "h10");
 	IOCSH_FUNC_WRAP( testCheck  );
 	IOCSH_FUNC_WRAP( myFloat    );
+	IOCSH_FUNC_WRAP( myDouble   );
 	IOCSH_FUNC_WRAP( myString   );
 	IOCSH_FUNC_WRAP( mycString  );
 	IOCSH_FUNC_WRAP( myStringr  );

@@ -21,5 +21,18 @@ c8  0 1 2 3 4 5 6 7 8 9
 c9  0 1 2 3 4 5 6 7 8 9
 c10 0 1 2 3 4 5 6 7 8 9
 
+myString("myString")
+myStringr("myStringr")
+mycString("mycString")
+myStringp("myStringp")
+mycStringp("mycStringp")
+myHello("myHello")
+mycHello("mycHello")
+
+myFuncShort(-3)
+
+myFloat(1.234)
+myDouble(5.678)
+
 testCheck()
 exit

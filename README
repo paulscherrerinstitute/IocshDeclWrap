@@ -119,42 +119,59 @@ If a particular type cannot be handled by the existing
 templates then the you can easily define your own
 specializations:
 
-  template <> 
-  void iocshFuncWrapperSetArg< MYTYPE > ( iocshArg *a )
-  {
-    a->name = "MYTYPE"; /* set default name/help for arg;
-                         * shown by iocsh help but may
-                         * be overridden by IOCSH_WRAP_FUNC
-                         * argument
-                         */
-    a->type = <iocsh type that is most appropriate>;
-  }
+    template <> IocshFuncWrapper::Convert< MYTYPE, MYTYPE > { 
+    {
+      static void setArg( iocshArg *a )
+      {
+        a->name = "MYTYPE"; /* set default name/help for arg;
+                             * shown by iocsh help but may
+                             * be overridden by IOCSH_WRAP_FUNC
+                             * argument
+                             */
+        a->type = <iocsh type that is most appropriate>;
+      }
+  
+      MYTYPE getArg( const iocshArgBuf       *arg,
+                     IocshFuncWrapperContext *ctx )
+      {
+         /* extract function argument from *arg, convert to MYTYPE and return */
+         return convert_to_MYTYPE( arg );
+      }
+    };
 
-  template <>
-  MYTYPE iocshFuncWrapperGetArg< MYTYPE >( const iocshArgBuf       *arg,
-                                           IocshFuncWrapperContext *ctx )
-  {
-     /* extract function argument from *arg, convert to MYTYPE and return */
-     return convert_to_MYTYPE( arg );
-  }
+Convert::getArg Context
+- - - - - - - - - - - -
 
 In more complex cases it is necessary to create an intermediate object
 during the conversion process. Such an object may need to be passed
 to the user function, i.e., be available outside of the scope of
-'GetArg'. This is what the context is used for. It lets you allocate
+'Context::getArg'. This is what the context is used for. It lets you allocate
 something new and attach to the context. The context is then destroyed
 after the user function is done executing. Here is the example
 where the user function expects a c++ string pointer argument; since
 the iocshArgBuf only holds a const char pointer we must create a
 new string which must exist until the user function returns:
 
-  template <>
-  string * iocshFuncWrapperGetArg< string* >( const iocshArgBuf       *arg,
-                                              IocshFuncWrapperContext *ctx )
-  {
-     /* 'make' creates a new string and attaches it to the context */
-     return ctx->make<string, const char*>( arg->sval );
-  }
+    template <> IocshFuncWrapper::Convert< string *, string *> {
+      static void setArg(iocshArg *a)
+      {
+        a->name = "<string>";
+        a->type = iocshArgString;
+      }
+    
+      static string * getArg( const iocshArgBuf       *arg,
+                              IocshFuncWrapperContext *ctx )
+      {
+         /* 'make' creates a new string and attaches it to the context */
+         return ctx->make<string, const char*>( arg->sval );
+      }
+    };
 
 The 'make<typename T, typename I>' works automatically as long as
 type 'T' has a constructor that takes an argument of type 'I'.
+
+Convert<> Template Argumennts
+- - - - - - - - - - - - - - -
+The 'Convert<typename T, typename R>' template expects two arguments.
+This allows for SFINAE-style specializations that can handle multiple
+related types. Consult the header for examples/guidance.
