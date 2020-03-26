@@ -3,7 +3,7 @@ PSIMAKEFILE=/ioc/tools/driver.makefile
 endif
 
 INSTALLS += $(INSTALL_DOCS)
-DOCS=README
+DOCS=README.md
 INSTALL_DOCS=$(addprefix $(INSTALL_DOC)/,$(DOCS))
 
 include $(PSIMAKEFILE)
