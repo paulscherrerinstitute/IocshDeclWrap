@@ -59,7 +59,7 @@ And in a 'dbd' file you add:
 ## `IOCSH_FUNC_WRAP_REGISTRAR()`
 
 The `IOCSH_FUNC_WRAP_REGISTRAR` macro is a convenience macro which
-defines and '`epicsExport`s' a registrar function:
+defines and 'epicsExports' a registrar function:
 
     IOCSH_FUNC_WRAP_REGISTRAR(
        <registrar_name>,
@@ -109,14 +109,14 @@ possible to wrap a `static` function.
 ## Template Specializations
 
 The templates handle the passing of arguments between
-iocshArgBuf and the user function. This is implemented
+`iocshArgBuf` and the user function. This is implemented
 by template specializations for specific types. The
-standard integral types as well as char* (strings)
-and double/float are already implemented.
+standard integral types as well as `char*` (C-strings),
+`std::string`, `double` and `float` are already implemented.
 
 If a particular type cannot be handled by the existing
 templates then the you can easily define your own
-specializations:
+specialization:
 
     template <> IocshFuncWrapper::Convert< MYTYPE, MYTYPE > {
     {
@@ -148,7 +148,7 @@ something new and attach it to the context. The context is eventually destroyed
 after the user function returns.
 
 Here is the example where the user function expects a C++ `std::string *` pointer
-argument; since the iocshArgBuf only holds a `const char *` pointer we have to
+argument; since the `iocshArgBuf` only holds a `const char *` pointer we have to
 create a new `std::string` which must exist until the user function returns:
 
     template <> IocshFuncWrapper::Convert< string *, string *> {
