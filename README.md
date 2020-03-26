@@ -59,7 +59,7 @@ And in a 'dbd' file you add:
 ## `IOCSH_FUNC_WRAP_REGISTRAR()`
 
 The `IOCSH_FUNC_WRAP_REGISTRAR` macro is a convenience macro which
-defines a registrar 'function':
+defines and '`epicsExport`s' a registrar function:
 
     IOCSH_FUNC_WRAP_REGISTRAR(
        <registrar_name>,
@@ -68,6 +68,7 @@ defines a registrar 'function':
 
 The name of the registrar must also be declared in a 'dbd'
 file.
+
 Note that multiple `IOCSH_FUNC_WRAP()` statements may be
 present in a single registrar. It is also not mandatory to
 use the `IOCSH_FUNC_WRAP_REGISTRAR()` macro at all.
