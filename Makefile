@@ -16,8 +16,14 @@ HEADERS += iocshDeclWrapper.h
 test: install
 	$(MAKE) -C test test
 
-clean::
-	$(MAKE) -C test $@
+ifndef EPICSVERSION
+clean:: test.clean
+endif
+
+.PHONY: clean test.clean
+
+test.clean:
+	$(MAKE) -C test $(@:test.%=%)
 
 ifdef DEBUG
 ifndef T_A
