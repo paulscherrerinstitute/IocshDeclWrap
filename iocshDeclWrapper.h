@@ -479,8 +479,6 @@ template <typename RR, RR *p> void call(const iocshArgBuf *args)
 
 #else  /* __cplusplus < 201103L */
 
-#include <stdarg.h>
-
 /*
 template <typename R>
 iocshFuncDef *buildArgs( const char *fname, R(*f)(void), ...)
@@ -514,78 +512,71 @@ iocshFuncDef  *buildArgs(G guess, const char *fname, const char **argNames)
 	FuncDef         funcDef( fname, N );
 	const char      *aname;
 	int             n;
-	va_list         ap;
 
-//	va_start(ap, fname);
-#undef va_arg
-#define va_arg(...) *argNames++
-
-	aname = va_arg( ap, const char *);
+	aname = *argNames++;
 	n     = -1;
 
 	if ( ++n >= N )
 		goto done;
 	funcDef.setArg( n, makeArg<typename G::A0_T>( aname ) );
 	if ( aname )
-		aname = va_arg( ap, const char * );
+		aname = *argNames++;
 
 	if ( ++n >= N )
 		goto done;
 	funcDef.setArg( n, makeArg<typename G::A1_T>( aname ) );
 	if ( aname )
-		aname = va_arg( ap, const char * );
+		aname = *argNames++;
 
 	if ( ++n >= N )
 		goto done;
 	funcDef.setArg( n, makeArg<typename G::A2_T>( aname ) );
 	if ( aname )
-		aname = va_arg( ap, const char * );
+		aname = *argNames++;
 
 	if ( ++n >= N )
 		goto done;
 	funcDef.setArg( n, makeArg<typename G::A3_T>( aname ) );
 	if ( aname )
-		aname = va_arg( ap, const char * );
+		aname = *argNames++;
 
 	if ( ++n >= N )
 		goto done;
 	funcDef.setArg( n, makeArg<typename G::A4_T>( aname ) );
 	if ( aname )
-		aname = va_arg( ap, const char * );
+		aname = *argNames++;
 
 	if ( ++n >= N )
 		goto done;
 	funcDef.setArg( n, makeArg<typename G::A5_T>( aname ) );
 	if ( aname )
-		aname = va_arg( ap, const char * );
+		aname = *argNames++;
 
 	if ( ++n >= N )
 		goto done;
 	funcDef.setArg( n, makeArg<typename G::A6_T>( aname ) );
 	if ( aname )
-		aname = va_arg( ap, const char * );
+		aname = *argNames++;
 
 	if ( ++n >= N )
 		goto done;
 	funcDef.setArg( n, makeArg<typename G::A7_T>( aname ) );
 	if ( aname )
-		aname = va_arg( ap, const char * );
+		aname = *argNames++;
 
 	if ( ++n >= N )
 		goto done;
 	funcDef.setArg( n, makeArg<typename G::A8_T>( aname ) );
 	if ( aname )
-		aname = va_arg( ap, const char * );
+		aname = *argNames++;
 
 	if ( ++n >= N )
 		goto done;
 	funcDef.setArg( n, makeArg<typename G::A9_T>( aname ) );
 	if ( aname )
-		aname = va_arg( ap, const char * );
+		aname = *argNames++;
 
 done:
-
-	va_end( ap );
 
 	return funcDef.release();
 }
