@@ -2,6 +2,9 @@
 
 Till Straumann, 2020/3
 
+This module is hosted on
+[github](https://github.com/paulscherrerinstitute/IocshFuncWrap.git)
+
 ## Introduction
 
 This module provides a C++ header file which automates the
