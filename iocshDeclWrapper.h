@@ -386,12 +386,12 @@ iocshFuncDef *buildFuncDef(const char *fname, int nargs)
 
 #include <initializer_list>
 
+namespace IocshFuncWrapper {
+
 template <typename R, typename ...A>
-iocshFuncDef  *iocshFuncWrapperBuildArgs( const char *fname, R (*f)(A...), std::initializer_list<const char *> argNames )
+iocshFuncDef  *buildArgs( const char *fname, R (*f)(A...), std::initializer_list<const char *> argNames )
 {
 	std::initializer_list<const char*>::const_iterator it;
-
-	using namespace IocshFuncWrapper;
 
 	FuncDef     funcDef( fname, sizeof...(A) );
 	// use array initializer to ensure order of execution
@@ -423,7 +423,7 @@ iocshFuncDef  *iocshFuncWrapperBuildArgs( const char *fname, R (*f)(A...), std::
  *
  * because we don't know in which order A... will be evaluated.
  */
-template <typename ...A> struct IocshFuncWrapperArgOrder {
+template <typename ...A> struct ArgOrder {
 
 	template <int ... I> struct Index {
 		/* Once we have a pair of parameter packs: A... I... we can expand */
@@ -459,18 +459,22 @@ template <typename ...A> struct IocshFuncWrapperArgOrder {
 
 template <typename R, typename ...A>
 static void
-iocshFuncWrapperDispatch(R (*f)(A...), const iocshArgBuf *args)
+dispatch(R (*f)(A...), const iocshArgBuf *args)
 {
-	IocshFuncWrapperArgOrder<A...>::arrange( f, args );
+	ArgOrder<A...>::arrange( f, args );
 }
 
-template <typename RR, RR *p> void iocshFuncWrapperCall(const iocshArgBuf *args)
+template <typename RR, RR *p> void call(const iocshArgBuf *args)
 {
-	iocshFuncWrapperDispatch(p, args);
+	dispatch(p, args);
 }
 
-#define IOCSH_FUNC_WRAP(x,argHelps...) do {\
-	iocshRegister( iocshFuncWrapperBuildArgs( #x, x, { argHelps } ), iocshFuncWrapperCall<decltype(x), x> ); \
+}
+
+#define IOCSH_FUNC_WRAP(x,argHelps...) do {                                  \
+	using IocshFuncWrapper::buildArgs;                                       \
+	using IocshFuncWrapper::call;                                            \
+	iocshRegister( buildArgs( #x, x, { argHelps } ), call<decltype(x), x> ); \
   } while (0)
 
 #else  /* __cplusplus < 201103L */
@@ -479,13 +483,13 @@ template <typename RR, RR *p> void iocshFuncWrapperCall(const iocshArgBuf *args)
 
 /*
 template <typename R>
-iocshFuncDef *iocshFuncWrapperBuildArgs( const char *fname, R(*f)(void), ...)
+iocshFuncDef *buildArgs( const char *fname, R(*f)(void), ...)
 {
 	IocshFuncWrapperDef funcDef( fname, 0 );
 	return funcDef.release();
 }
 
-template <typename R> class IocshFuncWrapperCaller<R, void> {
+template <typename R> class Caller<R, void> {
 public:
 	typedef R(*type)(void);
 	template <type func> static void call(const iocshArgBuf *args)
@@ -494,14 +498,16 @@ public:
 	}
 };
 
-template <typename R> IocshFuncWrapperCaller<R,void> iocshFuncWrapperMakeCaller(R (*f)(void))
+template <typename R> Caller<R,void> makeCaller(R (*f)(void))
 {
-	return IocshFuncWrapperCaller<R,void>();
+	return Caller<R,void>();
 }
 */
 
+namespace IocshFuncWrapper {
+
 template <typename G>
-iocshFuncDef  *iocshFuncWrapperBuildArgs(G guess, const char *fname, const char **argNames)
+iocshFuncDef  *buildArgs(G guess, const char *fname, const char **argNames)
 {
 	using namespace IocshFuncWrapper;
 	int             N = G::N;
@@ -586,7 +592,7 @@ done:
 
 template <typename R, typename A0, typename A1, typename A2, typename A3, typename A4,
                       typename A5, typename A6, typename A7, typename A8, typename A9>
-class IocshFuncWrapperCaller
+class Caller
 {
 public:
 	typedef R(*type)(A0, A1, A2, A3, A4, A5, A6, A7, A8, A9);
@@ -609,11 +615,11 @@ public:
 	 * The idea here is to use the function we want to wrap as a non-type template
 	 * parameter to 'personalize' the callFunc.
 	 *
-	 * We use the iocshFuncWrapperMakeCaller() template to generate the correct
+	 * We use the makeCaller() template to generate the correct
 	 * template of this class. Once the return and argument types are known
 	 * we can obtain the iocshCallFunc pointer like this:
 	 *
-	 *  iocshFuncWrapperMakeCaller( funcWeWantToWrap ).call<funcWeWantToWrap>
+	 *  makeCaller( funcWeWantToWrap ).call<funcWeWantToWrap>
 	 *
 	 * This instantiates this template and the instantiation 'knows' that 'func'
 	 * is in fact 'funcWeWantToWrap'...
@@ -636,7 +642,7 @@ public:
 
 template <typename R, typename A0, typename A1, typename A2, typename A3, typename A4,
                       typename A5, typename A6, typename A7, typename A8>
-class IocshFuncWrapperCaller<R, A0, A1, A2, A3, A4, A5, A6, A7, A8, void>
+class Caller<R, A0, A1, A2, A3, A4, A5, A6, A7, A8, void>
 {
 public:
 	typedef R(*type)(A0, A1, A2, A3, A4, A5, A6, A7, A8);
@@ -670,7 +676,7 @@ public:
 
 template <typename R, typename A0, typename A1, typename A2, typename A3, typename A4,
                       typename A5, typename A6, typename A7>
-class IocshFuncWrapperCaller<R, A0, A1, A2, A3, A4, A5, A6, A7, void, void>
+class Caller<R, A0, A1, A2, A3, A4, A5, A6, A7, void, void>
 {
 public:
 	typedef R(*type)(A0, A1, A2, A3, A4, A5, A6, A7);
@@ -703,7 +709,7 @@ public:
 
 template <typename R, typename A0, typename A1, typename A2, typename A3, typename A4,
                       typename A5, typename A6>
-class IocshFuncWrapperCaller<R, A0, A1, A2, A3, A4, A5, A6, void, void, void>
+class Caller<R, A0, A1, A2, A3, A4, A5, A6, void, void, void>
 {
 public:
 	typedef R(*type)(A0, A1, A2, A3, A4, A5, A6);
@@ -735,7 +741,7 @@ public:
 
 template <typename R, typename A0, typename A1, typename A2, typename A3, typename A4,
                       typename A5>
-class IocshFuncWrapperCaller<R, A0, A1, A2, A3, A4, A5, void, void, void, void>
+class Caller<R, A0, A1, A2, A3, A4, A5, void, void, void, void>
 {
 public:
 	typedef R(*type)(A0, A1, A2, A3, A4, A5);
@@ -765,7 +771,7 @@ public:
 };
 
 template <typename R, typename A0, typename A1, typename A2, typename A3, typename A4>
-class IocshFuncWrapperCaller<R, A0, A1, A2, A3, A4, void, void, void, void, void>
+class Caller<R, A0, A1, A2, A3, A4, void, void, void, void, void>
 {
 public:
 	typedef R(*type)(A0, A1, A2, A3, A4);
@@ -794,7 +800,7 @@ public:
 };
 
 template <typename R, typename A0, typename A1, typename A2, typename A3>
-class IocshFuncWrapperCaller<R, A0, A1, A2, A3, void, void, void, void, void, void>
+class Caller<R, A0, A1, A2, A3, void, void, void, void, void, void>
 {
 public:
 	typedef R(*type)(A0, A1, A2, A3);
@@ -822,7 +828,7 @@ public:
 };
 
 template <typename R, typename A0, typename A1, typename A2>
-class IocshFuncWrapperCaller<R, A0, A1, A2, void, void, void, void, void, void, void>
+class Caller<R, A0, A1, A2, void, void, void, void, void, void, void>
 {
 public:
 	typedef R(*type)(A0, A1, A2);
@@ -849,7 +855,7 @@ public:
 };
 
 template <typename R, typename A0, typename A1>
-class IocshFuncWrapperCaller<R, A0, A1, void, void, void, void, void, void, void, void>
+class Caller<R, A0, A1, void, void, void, void, void, void, void, void>
 {
 public:
 	typedef R(*type)(A0, A1);
@@ -876,7 +882,7 @@ public:
 
 
 template <typename R, typename A0>
-class IocshFuncWrapperCaller<R, A0, void, void, void, void, void, void, void, void, void>
+class Caller<R, A0, void, void, void, void, void, void, void, void, void>
 {
 public:
 	typedef R(*type)(A0);
@@ -901,7 +907,7 @@ public:
 };
 
 template <typename R>
-class IocshFuncWrapperCaller<R, void, void, void, void, void, void, void, void, void, void>
+class Caller<R, void, void, void, void, void, void, void, void, void, void>
 {
 public:
 	typedef R(*type)(void);
@@ -927,96 +933,100 @@ public:
 
 /* Function templates which use argument deduction to find the argument and return types
  * of function 'f'.
- * Return a properly parametrized IocshFuncWrapperCaller<> object. This allows us to infer
+ * Return a properly parametrized Caller<> object. This allows us to infer
  * the argument and return types of the function we want to wrap without the user having
  * to give us any more information.
  *
  * Build a iocshFuncDef containing descriptions of the arguments 'funcWeWantToWrap' expects.
  *
- *	iocshFuncWrapperBuildArgs( iocshFuncWrapperMakeCaller(funcWeWantToWrap), ... )
+ *	buildArgs( makeCaller(funcWeWantToWrap), ... )
  *
  * Build a iocshCallFunc. Calling this wrapper results in 'funcWeWantToWrap' being executed
  * with arguments extracted from a iocshArgBuf:
  *
- *	iocshFuncWrapperMakeCaller(funcWeWantToWrap).call<funcWeWantToWrap>
+ *	makeCaller(funcWeWantToWrap).call<funcWeWantToWrap>
  *
  */
 template <typename R, typename A0, typename A1, typename A2, typename A3, typename A4,
                       typename A5, typename A6, typename A7, typename A8, typename A9>
-IocshFuncWrapperCaller<R,A0,A1,A2,A3,A4,A5,A6,A7,A8,A9> iocshFuncWrapperMakeCaller(R (*f)(A0,A1,A2,A3,A4,A5,A6,A7,A8,A9))
+Caller<R,A0,A1,A2,A3,A4,A5,A6,A7,A8,A9> makeCaller(R (*f)(A0,A1,A2,A3,A4,A5,A6,A7,A8,A9))
 {
-	return IocshFuncWrapperCaller<R,A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>();
+	return Caller<R,A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>();
 }
 
 template <typename R, typename A0, typename A1, typename A2, typename A3, typename A4,
                       typename A5, typename A6, typename A7, typename A8>
-IocshFuncWrapperCaller<R,A0,A1,A2,A3,A4,A5,A6,A7,A8,void> iocshFuncWrapperMakeCaller(R (*f)(A0,A1,A2,A3,A4,A5,A6,A7,A8))
+Caller<R,A0,A1,A2,A3,A4,A5,A6,A7,A8,void> makeCaller(R (*f)(A0,A1,A2,A3,A4,A5,A6,A7,A8))
 {
-	return IocshFuncWrapperCaller<R,A0,A1,A2,A3,A4,A5,A6,A7,A8,void>();
+	return Caller<R,A0,A1,A2,A3,A4,A5,A6,A7,A8,void>();
 }
 
 template <typename R, typename A0, typename A1, typename A2, typename A3, typename A4,
                       typename A5, typename A6, typename A7>
-IocshFuncWrapperCaller<R,A0,A1,A2,A3,A4,A5,A6,A7,void,void> iocshFuncWrapperMakeCaller(R (*f)(A0,A1,A2,A3,A4,A5,A6,A7))
+Caller<R,A0,A1,A2,A3,A4,A5,A6,A7,void,void> makeCaller(R (*f)(A0,A1,A2,A3,A4,A5,A6,A7))
 {
-	return IocshFuncWrapperCaller<R,A0,A1,A2,A3,A4,A5,A6,A7,void,void>();
+	return Caller<R,A0,A1,A2,A3,A4,A5,A6,A7,void,void>();
 }
 
 template <typename R, typename A0, typename A1, typename A2, typename A3, typename A4,
                       typename A5, typename A6>
-IocshFuncWrapperCaller<R,A0,A1,A2,A3,A4,A5,A6,void,void,void> iocshFuncWrapperMakeCaller(R (*f)(A0,A1,A2,A3,A4,A5,A6))
+Caller<R,A0,A1,A2,A3,A4,A5,A6,void,void,void> makeCaller(R (*f)(A0,A1,A2,A3,A4,A5,A6))
 {
-	return IocshFuncWrapperCaller<R,A0,A1,A2,A3,A4,A5,A6,void,void,void>();
+	return Caller<R,A0,A1,A2,A3,A4,A5,A6,void,void,void>();
 }
 
 template <typename R, typename A0, typename A1, typename A2, typename A3, typename A4,
                       typename A5>
-IocshFuncWrapperCaller<R,A0,A1,A2,A3,A4,A5,void,void,void,void> iocshFuncWrapperMakeCaller(R (*f)(A0,A1,A2,A3,A4,A5))
+Caller<R,A0,A1,A2,A3,A4,A5,void,void,void,void> makeCaller(R (*f)(A0,A1,A2,A3,A4,A5))
 {
-	return IocshFuncWrapperCaller<R,A0,A1,A2,A3,A4,A5,void,void,void,void>();
+	return Caller<R,A0,A1,A2,A3,A4,A5,void,void,void,void>();
 }
 
 template <typename R, typename A0, typename A1, typename A2, typename A3, typename A4>
-IocshFuncWrapperCaller<R,A0,A1,A2,A3,A4,void,void,void,void,void> iocshFuncWrapperMakeCaller(R (*f)(A0,A1,A2,A3,A4))
+Caller<R,A0,A1,A2,A3,A4,void,void,void,void,void> makeCaller(R (*f)(A0,A1,A2,A3,A4))
 {
-	return IocshFuncWrapperCaller<R,A0,A1,A2,A3,A4,void,void,void,void,void>();
+	return Caller<R,A0,A1,A2,A3,A4,void,void,void,void,void>();
 }
 
 template <typename R, typename A0, typename A1, typename A2, typename A3>
-IocshFuncWrapperCaller<R,A0,A1,A2,A3,void,void,void,void,void,void> iocshFuncWrapperMakeCaller(R (*f)(A0,A1,A2,A3))
+Caller<R,A0,A1,A2,A3,void,void,void,void,void,void> makeCaller(R (*f)(A0,A1,A2,A3))
 {
-	return IocshFuncWrapperCaller<R,A0,A1,A2,A3,void,void,void,void,void,void>();
+	return Caller<R,A0,A1,A2,A3,void,void,void,void,void,void>();
 }
 
 template <typename R, typename A0, typename A1, typename A2>
-IocshFuncWrapperCaller<R,A0,A1,A2,void,void,void,void,void,void,void> iocshFuncWrapperMakeCaller(R (*f)(A0,A1,A2))
+Caller<R,A0,A1,A2,void,void,void,void,void,void,void> makeCaller(R (*f)(A0,A1,A2))
 {
-	return IocshFuncWrapperCaller<R,A0,A1,A2,void,void,void,void,void,void,void>();
+	return Caller<R,A0,A1,A2,void,void,void,void,void,void,void>();
 }
 
 template <typename R, typename A0, typename A1>
-IocshFuncWrapperCaller<R,A0,A1,void,void,void,void,void,void,void,void> iocshFuncWrapperMakeCaller(R (*f)(A0,A1))
+Caller<R,A0,A1,void,void,void,void,void,void,void,void> makeCaller(R (*f)(A0,A1))
 {
-	return IocshFuncWrapperCaller<R,A0,A1,void,void,void,void,void,void,void,void>();
+	return Caller<R,A0,A1,void,void,void,void,void,void,void,void>();
 }
 
 template <typename R, typename A0>
-IocshFuncWrapperCaller<R,A0,void,void,void,void,void,void,void,void,void> iocshFuncWrapperMakeCaller(R (*f)(A0))
+Caller<R,A0,void,void,void,void,void,void,void,void,void> makeCaller(R (*f)(A0))
 {
-	return IocshFuncWrapperCaller<R,A0,void,void,void,void,void,void,void,void,void>();
+	return Caller<R,A0,void,void,void,void,void,void,void,void,void>();
 }
 
 template <typename R>
-IocshFuncWrapperCaller<R,void,void,void,void,void,void,void,void,void,void> iocshFuncWrapperMakeCaller(R (*f)(void))
+Caller<R,void,void,void,void,void,void,void,void,void,void> makeCaller(R (*f)(void))
 {
-	return IocshFuncWrapperCaller<R,void,void,void,void,void,void,void,void,void,void>();
+	return Caller<R,void,void,void,void,void,void,void,void,void,void>();
+}
+
 }
 
 #define IOCSH_FUNC_WRAP_MAX_ARGS 10
 
-#define IOCSH_FUNC_WRAP(x,argHelps...) do { \
-	const char *argNames[IOCSH_FUNC_WRAP_MAX_ARGS + 1] = { argHelps }; \
-	iocshRegister( iocshFuncWrapperBuildArgs( iocshFuncWrapperMakeCaller(x), #x, argNames ), iocshFuncWrapperMakeCaller(x).call<x> ); \
+#define IOCSH_FUNC_WRAP(x,argHelps...) do {                                           \
+	const char *argNames[IOCSH_FUNC_WRAP_MAX_ARGS + 1] = { argHelps };                \
+	using IocshFuncWrapper::buildArgs;                                                \
+	using IocshFuncWrapper::makeCaller;                                               \
+	iocshRegister( buildArgs( makeCaller(x), #x, argNames ), makeCaller(x).call<x> ); \
 	} while (0)
 
 #endif /* __cplusplus >= 201103L */
