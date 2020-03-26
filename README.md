@@ -123,7 +123,7 @@ If a particular type cannot be handled by the existing
 templates then the you can easily define your own
 specialization:
 
-    template <> IocshFuncWrapper::Convert< MYTYPE, MYTYPE > {
+    template <> IocshDeclWrapper::Convert< MYTYPE, MYTYPE > {
     {
       static void setArg( iocshArg *a )
       {
@@ -135,8 +135,8 @@ specialization:
         a->type = <iocsh type that is most appropriate>;
       }
 
-      MYTYPE getArg( const iocshArgBuf       *arg,
-                     IocshFuncWrapperContext *ctx )
+      MYTYPE getArg( const iocshArgBuf         *arg,
+                     IocshDeclWrapper::Context *ctx )
       {
          /* extract function argument from *arg, convert to MYTYPE and return */
          return convert_to_MYTYPE( arg );
@@ -148,7 +148,7 @@ specialization:
 In some cases `getArg` cannot convert a value. E.g., when converting
 from a string argument and the string is NULL or ill-formatted.
 
-In this case `getArg` may throw a `IocshFuncWrapper::ConversionError`
+In this case `getArg` may throw a `IocshDeclWrapper::ConversionError`
 which is caught and results in an error message to be printed to
 the console. The user function is not executed if such an error
 is thrown.
@@ -166,15 +166,15 @@ Here is the example where the user function expects a C++ `std::string *` pointe
 argument; since the `iocshArgBuf` only holds a `const char *` pointer we have to
 create a new `std::string` which must exist until the user function returns:
 
-    template <> IocshFuncWrapper::Convert< string *, string *> {
+    template <> IocshDeclWrapper::Convert< string *, string *> {
       static void setArg(iocshArg *a)
       {
         a->name = "<string>";
         a->type = iocshArgString;
       }
 
-      static string * getArg( const iocshArgBuf       *arg,
-                              IocshFuncWrapperContext *ctx )
+      static string * getArg( const iocshArgBuf         *arg,
+                              IocshDeclWrapper::Context *ctx )
       {
          /* 'make' creates a new string and attaches it to the context */
          return ctx->make<string, const char*>( arg->sval );
