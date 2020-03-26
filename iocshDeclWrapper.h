@@ -126,6 +126,11 @@ public:
 	friend class Context;
 };
 
+/*
+ * Context holds the object pointers until the Context is
+ * destroyed. Its destructor eventually delets all objects
+ * held by the Context.
+ */
 class Context : public std::vector<ContextElBase*> {
 public:
 	virtual ~Context()
@@ -136,6 +141,11 @@ public:
 		}
 	}
 
+	/*
+	 * Create a new object of type T and attach to
+	 * the Context.
+	 * RETURNS: pointer to the new object.
+	 */
 	template <typename T, typename I> T * make(I i)
 	{
 		ContextEl<T,I> *el = new ContextEl<T,I>( i );
@@ -144,6 +154,9 @@ public:
 	}
 };
 
+/*
+ * Converter to map between user function arguments and iocshArg/iocshArgBuf
+ */
 template <typename T, typename R> struct Convert {
 	/*
 	 * Set argument type and default name in iocshArg for type 'T'.
@@ -293,6 +306,7 @@ template <> struct Convert<char *, char *> {
 
 	static char * getArg(const iocshArgBuf *a, Context *ctx)
 	{
+		/* must make a copy of the const char * help in the iocshArgBuf */
 		return (char*)ctx->make<char[], const char *>( a->sval );
 	}
 };
@@ -317,6 +331,9 @@ template <typename T> struct Convert<T, typename is_flt<T>::type> {
 	}
 };
 
+/*
+ * Helper class for building a iocshFuncDef
+ */
 class FuncDef {
 private:
 	iocshFuncDef *def;
@@ -375,11 +392,6 @@ public:
 	}
 };
 
-iocshFuncDef *buildFuncDef(const char *fname, int nargs)
-{
-	return 0;
-}
-
 };
 
 #if __cplusplus >= 201103L
@@ -388,6 +400,12 @@ iocshFuncDef *buildFuncDef(const char *fname, int nargs)
 
 namespace IocshFuncWrapper {
 
+/*
+ * Build a iocshFuncDef with associated iocArg structs.
+ * If we were to wrap huge masses of user functions then
+ * we could keep a cache of most used iocArgs (same epics type,
+ * same help string) around but ATM we don't bother...
+ */
 template <typename R, typename ...A>
 iocshFuncDef  *buildArgs( const char *fname, R (*f)(A...), std::initializer_list<const char *> argNames )
 {
@@ -479,31 +497,12 @@ template <typename RR, RR *p> void call(const iocshArgBuf *args)
 
 #else  /* __cplusplus < 201103L */
 
-/*
-template <typename R>
-iocshFuncDef *buildArgs( const char *fname, R(*f)(void), ...)
-{
-	IocshFuncWrapperDef funcDef( fname, 0 );
-	return funcDef.release();
-}
-
-template <typename R> class Caller<R, void> {
-public:
-	typedef R(*type)(void);
-	template <type func> static void call(const iocshArgBuf *args)
-	{
-		func();
-	}
-};
-
-template <typename R> Caller<R,void> makeCaller(R (*f)(void))
-{
-	return Caller<R,void>();
-}
-*/
-
 namespace IocshFuncWrapper {
 
+
+/* 
+ * See C++11 version for comments...
+ */
 template <typename G>
 iocshFuncDef  *buildArgs(G guess, const char *fname, const char **argNames)
 {
@@ -573,7 +572,7 @@ iocshFuncDef  *buildArgs(G guess, const char *fname, const char **argNames)
 	if ( ++n >= N )
 		goto done;
 	funcDef.setArg( n, makeArg<typename G::A9_T>( aname ) );
-	if ( aname )
+	if ( aname ) /* not necessary but leave in case more args are added */
 		aname = *argNames++;
 
 done:
@@ -581,12 +580,23 @@ done:
 	return funcDef.release();
 }
 
+/*
+ * The purpose of this template is the implementation of a iocshCallFunc wrapper
+ * around the user function.
+ *
+ * Without support for variadic templates (C++98) we must provide a specialization
+ * for every number of arguments from 0 .. IOCSH_FUNC_WRAP_MAX_ARGS - 1 (currently
+ * supported max. - 1); see below...
+ */
+
 template <typename R, typename A0, typename A1, typename A2, typename A3, typename A4,
                       typename A5, typename A6, typename A7, typename A8, typename A9>
 class Caller
 {
 public:
+	/* type of the user function */
 	typedef R(*type)(A0, A1, A2, A3, A4, A5, A6, A7, A8, A9);
+
 	typedef A0 A0_T;
 	typedef A1 A1_T;
 	typedef A2 A2_T;
