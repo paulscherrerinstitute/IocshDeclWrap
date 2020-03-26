@@ -1,6 +1,10 @@
 #ifndef IOCSH_FUNC_WRAPPER_H
 #define IOCSH_FUNC_WRAPPER_H
 
+#ifndef __cplusplus
+#error "This header requires C++"
+#endif
+
 #include <epicsString.h>
 #include <iocsh.h>
 #include <string>
