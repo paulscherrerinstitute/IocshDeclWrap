@@ -100,11 +100,15 @@ the user types
 in iocsh. By default, a string describing the type of the
 argument is used.
 
-### C++98 Restriction
+### C++98 Restrictions
 
 When using a C++98 compiler (no C++11 support) the user
 function must have *external linkage*. I.e., it is not
 possible to wrap a `static` function.
+
+For C++98 the maximal number of arguments the user function
+may have is limited to `IOCSH_FUNC_WRAP_MAX_ARGS` (currently
+10). Under C++11 there is no static maximum.
 
 ## Template Specializations
 
