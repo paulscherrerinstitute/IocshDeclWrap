@@ -1,4 +1,5 @@
 1.1.0:
+ - renamed IocshFuncWrapper namespace -> IocshDeclWrapper
  - support for std::complex<>
  - support for throwing and handling ConversionError
 1.0.2:
