@@ -1,3 +1,5 @@
+1.0.2:
+ - minor cleanup
 1.0.1:
  - minor modifications to Makefile (clean rule)
 1.0.0:
