@@ -35,26 +35,26 @@ Assume you want to access a user function (e.g.,
 written in 'C' ) from iocsh. The function shall
 be defined in a header file:
 
-myHeader.h:
+    myHeader.h:
 
-  int myFunction(int debugLevel, const char *comment);
+      int myFunction(int debugLevel, const char *comment);
 
 Wrapping requires C++; thus you must create or add to
 a c++ file:
 
-  extern "C" {
-  #include <myHeader.h>
-  };
-  #include <iocshDeclWrapper.h>
-
-  IOCSH_FUNC_WRAP_REGISTRAR( myRegistrar,
-    IOCSH_FUNC_WRAP( myFunction, "debugLevel(int)", "comment(string)" );
-    /* more functions may be registered here */
-  )
+    extern "C" {
+    #include <myHeader.h>
+    };
+    #include <iocshDeclWrapper.h>
+  
+    IOCSH_FUNC_WRAP_REGISTRAR( myRegistrar,
+      IOCSH_FUNC_WRAP( myFunction, "debugLevel(int)", "comment(string)" );
+      /* more functions may be registered here */
+    )
 
 And in a 'dbd' file you add:
 
-  registrar( myRegistrar );
+    registrar( myRegistrar );
 
 IOCSH_FUNC_WRAP_REGISTRAR()
 ---------------------------
