@@ -16,7 +16,7 @@ static int testPassed = 0;
  *  grep 'testPassed[\t]*[+][+]' wrapper.cc  | wc
  * over this file
  */
-#define NUM_TESTS 22
+#define NUM_TESTS 23
 
 void myString(std::string s)
 {
@@ -58,7 +58,7 @@ extern "C" void myVoidarg()
 	printf("my VOIDARG\n");
 }
 
-extern "C" void myFloat(float a)
+extern "C" float myFloat(float a)
 {
 	if ( a != (float)1.234 ) {
 		printf("Float test FAILED: expected %f, got %f\n", (float)1.234, a);
@@ -67,12 +67,14 @@ extern "C" void myFloat(float a)
 		testPassed++;
 	}
 	printf("my FLOAT: %f\n", a);
+	return a;
 }
 
-extern "C" void myDouble(double a)
+extern "C" double myDouble(double a)
 {
 	if ( a != 5.678 ) testFailed++; else testPassed++;
 	printf("my DOUBLE: %f\n", a);
+	return a;
 }
 
 
@@ -95,10 +97,10 @@ extern "C" int myFuncUInt(unsigned int a)
 	return 0;
 }
 
-extern "C" int myFuncU32(uint32_t a)
+extern "C" uint32_t myFuncU32(uint32_t a)
 {
 	printf("myFuncUInt  %i\n", a);
-	return 0;
+	return a;
 }
 
 
@@ -106,14 +108,14 @@ extern "C" int myFuncU32(uint32_t a)
 extern "C" int myFuncInt(int a)
 {
 	printf("myFuncInt  %i\n", a);
-	return 0;
+	return a;
 }
 
-extern "C" int myFuncShort(short a)
+extern "C" short myFuncShort(short a)
 {
 	if ( -3 != a ) testFailed++; else testPassed++;
 	printf("myFuncShort %hi\n", a);
-	return 0;
+	return a;
 }
 
 extern "C" int c0()
@@ -229,6 +231,21 @@ int c10(int a0, int a1, int a2, int a3, int a4, int a5, int a6, int a7, int a8, 
 	return printf("A10 %i %i %i %i %i %i %i %i %i %i\n", a0, a1, a2, a3, a4, a5, a6, a7, a8, a9);
 }
 
+class MyType {};
+
+MyType genMyType()
+{
+	return MyType();
+}
+
+std::complex<double> myComplex(std::complex<double> val)
+{
+	if ( 1.234 != val.real() || 5.678 != val.imag() ) testFailed++; else testPassed++;
+	printf("myComplex: %g j %g\n", val.real(), val.imag());
+	return val;
+}
+
+
 void testCheck()
 {
 	if ( 0 == testFailed && NUM_TESTS == testPassed ) {
@@ -247,13 +264,17 @@ void testCheck()
 
 };
 
-void myComplex(std::complex<double> val)
-{
-	if ( 1.234 != val.real() || 5.678 != val.imag() ) testFailed++; else testPassed++;
-	printf("myComplex: %g j %g\n", val.real(), val.imag());
-}
-
 using namespace IocshDeclWrapperTest;
+
+template <> class IocshDeclWrapper::Printer<MyType, MyType(), genMyType> : public ::IocshDeclWrapper::PrinterBase<MyType> {
+public:
+	static void print(const MyType &r)
+	{
+		errlogPrintf("Printer for 'MyType'\n");
+		testPassed++;
+	}
+};
+
 
 IOCSH_FUNC_WRAP_REGISTRAR(wrapperRegister,
 	IOCSH_FUNC_WRAP( myHello    );
@@ -284,6 +305,7 @@ IOCSH_FUNC_WRAP_REGISTRAR(wrapperRegister,
 	IOCSH_FUNC_WRAP( myStringp  );
 	IOCSH_FUNC_WRAP( mycStringp );
 	IOCSH_FUNC_WRAP( myComplex  );
+	IOCSH_FUNC_WRAP( genMyType  );
 )
 
 epicsExportAddress(int, testPassed);

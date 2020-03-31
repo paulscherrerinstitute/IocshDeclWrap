@@ -38,5 +38,7 @@ myDouble(5.678)
 myComplex
 myComplex 1.234j5.678
 
+genMyType()
+
 testCheck()
 exit

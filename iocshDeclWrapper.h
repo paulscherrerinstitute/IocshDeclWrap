@@ -387,6 +387,172 @@ template <typename T> struct Convert<T, typename is_cplx<T>::type> {
 };
 
 /*
+ * Handling the result of the user function; we use an (overridable) 'print'
+ * function that we apply to the result.
+ * The problem here is that print( f() ) is an error if f() returns 'void'.
+ * We use a trick: since the 'comma' expression '(x, f())' is valid even
+ * if f() returns void we can use an object 'x' from a class that overrides
+ * the ',' operator. Note that an overridden 'operator,' does not quite behave
+ * like the normal one (see C++ standard) -- but the trick leaves the built-in
+ * version in place for the 'void' variant but overrides everything else:
+ */
+
+template <typename R> class EvalResult {
+public:
+	/* Printer function */
+	typedef void (*PrinterType) (const R &); 
+private:
+	PrinterType pri;
+public:
+	EvalResult(PrinterType pri)
+	: pri( pri )
+	{
+	}
+
+	/* Our ',' operator applies the printer function */
+	void operator,(const R &result)
+	{
+		pri( result );
+	}
+};
+
+/*
+ * Specialization for 'void' results. *remove* the overridden
+ * comma operator.
+ * The print function type is just a dummy...
+ */
+template <> class EvalResult<void> {
+public:
+	/* Printer function */
+	typedef void *PrinterType;
+
+	EvalResult(PrinterType pri)
+	{
+	}
+
+	/* Use the built-in 'operator,' */
+};
+
+/*
+ * For the default Printer implementation we
+ * use specialized 'format strings'
+ */
+template <typename R> const char **printFmts()
+{
+	return 0;
+}
+
+template <> const char **printFmts<bool>()
+{
+	static const char *r [] = { "%d", 0 };
+	return r;
+}
+
+template <> const char **printFmts<char>()
+{
+	static const char *r [] = { "%c", " (0x%02hhx)", 0 };
+	return r;
+}
+
+template <> const char **printFmts<short>()
+{
+	static const char *r [] = { "%hi", " (0x%04hx)", 0 };
+	return r;
+}
+
+template <> const char **printFmts<int>()
+{
+	static const char *r [] = { "%i", " (0x%08x)", 0 };
+	return r;
+}
+
+template <> const char **printFmts<long>()
+{
+	static const char *r [] = { "%li", " (0x%08lx)", 0 };
+	return r;
+}
+
+template <> const char **printFmts<long long>()
+{
+	static const char *r [] = { "%lli", " (0x%16llx)", 0 };
+	return r;
+}
+
+template <> const char **printFmts<unsigned char>()
+{
+	static const char *r [] = { "%c", " (0x%02hhx)", 0 };
+	return r;
+}
+
+template <> const char **printFmts<unsigned short>()
+{
+	static const char *r [] = { "%hu", " (0x%04hx)", 0 };
+	return r;
+}
+
+template <> const char **printFmts<unsigned int>()
+{
+	static const char *r [] = { "%u", " (0x%08x)", 0 };
+	return r;
+}
+
+template <> const char **printFmts<unsigned long>()
+{
+	static const char *r [] = { "%lu", " (0x%08lx)", 0 };
+	return r;
+}
+
+template <> const char **printFmts<unsigned long long>()
+{
+	static const char *r [] = { "%llu", " (0x%16llx)", 0 };
+	return r;
+}
+
+
+template <> const char **printFmts<float>()
+{
+	static const char *r [] = { "%g", 0 };
+	return r;
+}
+
+template <> const char **printFmts<double>()
+{
+	static const char *r [] = { "%.10lg", 0 };
+	return r;
+}
+
+
+template <typename R> class PrinterBase {
+public:
+	static void print( const R &r ) {
+		const char **fmts = printFmts<R>();
+		if ( ! fmts ) {
+			errlogPrintf("<No print format for this return type implemented>\n");
+		} else {
+			while ( *fmts ) {
+				errlogPrintf( *fmts, r );
+				fmts++;
+			}
+			errlogPrintf("\n");
+		}
+	}
+};
+
+template <typename R> class PrinterBase< std::complex<R> > {
+public:
+	static void print( const std::complex<R> &r )
+	{
+		errlogPrintf("%.10Lg J %.10Lg\n", (long double)r.real(), (long double)r.imag());
+	}
+};
+
+/*
+ * Can be specialized for a particular user function 'sig'
+ */
+template <typename R, typename SIG, SIG *sig> class Printer : public PrinterBase<R> {
+};
+
+/*
  * Helper class for building a iocshFuncDef
  */
 class FuncDef {
@@ -500,50 +666,76 @@ template <typename ...A> struct ArgOrder {
 
 	template <int ... I> struct Index {
 		/* Once we have a pair of parameter packs: A... I... we can expand */
-		template <typename R> static void dispatch(R (*f)(A...), const iocshArgBuf *args)
+		template <typename R> static R dispatch(R (*f)(A...), const iocshArgBuf *args)
 		{
 			IocshDeclWrapper::Context ctx;
-			try {
-				f( IocshDeclWrapper::Convert<A,A>::getArg( &args[I], &ctx )... );
-			} catch ( ConversionError &e ) {
-				errlogPrintf( "Error: Invalid Argument -- %s\n", e.what() );
-			}
+			return f( IocshDeclWrapper::Convert<A,A>::getArg( &args[I], &ctx )... );
 		}
 	};
 
 	/* Recursively build I... */
 	template <int i, int ...I> struct C {
-		template <typename R> static void concat(R (*f)(A...), const iocshArgBuf *args)
+		template <typename R> static R concat(R (*f)(A...), const iocshArgBuf *args)
 		{
-			C<i-1, i-1, I...>::concat(f, args);
+			return C<i-1, i-1, I...>::concat(f, args);
 		}
 	};
 
 	/* Specialization for terminating the recursion */
 	template <int ...I> struct C<0, I...> {
-		template <typename R> static void concat(R (*f)(A...), const iocshArgBuf *args)
+		template <typename R> static R concat(R (*f)(A...), const iocshArgBuf *args)
 		{
-			Index<I...>::dispatch(f, args);
+			return Index<I...>::dispatch(f, args);
 		}
 	};
 
 	/* Build index pack and dispatch 'f' */
-	template <typename R> static void arrange( R(*f)(A...), const iocshArgBuf *args)
+	template <typename R> static R arrange( R(*f)(A...), const iocshArgBuf *args)
 	{
-		C<sizeof...(A)>::concat( f, args );
+		return C<sizeof...(A)>::concat( f, args );
 	}
 };
 
+/*
+ * Build a Printer signature
+ */
+template <typename R, typename SIG> struct Guesser {
+	typedef typename EvalResult<R>::PrinterType PrinterType;
+
+	template <SIG *sig> PrinterType getPrinter()
+	{
+		return Printer<R, SIG, sig>::print;
+	}
+};
+
+template <typename SIG> struct Guesser<void, SIG> {
+	typedef typename EvalResult<void>::PrinterType PrinterType;
+
+	template <SIG *sig> PrinterType getPrinter()
+	{
+		return 0;
+	}
+};
+
+template <typename SIG, typename R, typename ...A> Guesser<R, SIG> makeGuesser(R (*f)(A...))
+{
+	return Guesser<R, SIG>();
+}
+
 template <typename R, typename ...A>
 static void
-dispatch(R (*f)(A...), const iocshArgBuf *args)
+dispatch(R (*f)(A...), const iocshArgBuf *args, typename EvalResult<R>::PrinterType printer)
 {
-	ArgOrder<A...>::arrange( f, args );
+	try {
+		( EvalResult<R>( printer ), ArgOrder<A...>::arrange( f, args ) );
+	} catch ( ConversionError &e ) {
+		errlogPrintf( "Error: Invalid Argument -- %s\n", e.what() );
+	}
 }
 
 template <typename RR, RR *p> void call(const iocshArgBuf *args)
 {
-	dispatch(p, args);
+	dispatch( p, args, makeGuesser<RR>( p ).template getPrinter<p>() );
 }
 
 }

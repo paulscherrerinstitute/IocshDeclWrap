@@ -89,7 +89,7 @@ is really easy to use:
 The first argument identifies the function which you want
 to wrap. The declaration of this function must be available
 from where you expand the macro (the C++ template needs to
-know the exact type of the function's return value and arguments).
+know the exact types of the function's return value and arguments).
 
 Additional arguments are optional; they can be used to give
 explanatory names to the arguments which will show up when
@@ -149,7 +149,7 @@ In some cases `getArg` cannot convert a value. E.g., when converting
 from a string argument and the string is NULL or ill-formatted.
 
 In this case `getArg` may throw a `IocshDeclWrapper::ConversionError`
-which is caught and results in an error message to be printed to
+which is caught and results in an error message being printed to
 the console. The user function is not executed if such an error
 is thrown.
 
