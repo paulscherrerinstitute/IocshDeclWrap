@@ -804,36 +804,39 @@ template <typename ...A> struct ArgOrder {
 
 	template <int ... I> struct Index {
 		/* Once we have a pair of parameter packs: A... I... we can expand */
-		template <typename R> static R dispatch(R (*f)(A...), const iocshArgBuf *args)
+		template <typename R> static R dispatch(R (*f)(A...), const iocshArgBuf *args, Context *ctx)
 		{
-			IocshDeclWrapper::Context ctx;
-			return f( IocshDeclWrapper::Convert<A,A>::getArg( &args[I], &ctx )... );
+			return f( IocshDeclWrapper::Convert<A,A>::getArg( &args[I], ctx )... );
 		}
 	};
 
 	/* Recursively build I... */
 	template <int i, int ...I> struct C {
-		template <typename R> static R concat(R (*f)(A...), const iocshArgBuf *args)
+		template <typename R> static R concat(R (*f)(A...), const iocshArgBuf *args, Context *ctx)
 		{
-			return C<i-1, i-1, I...>::concat(f, args);
+			return C<i-1, i-1, I...>::concat(f, args, ctx);
 		}
 	};
 
 	/* Specialization for terminating the recursion */
 	template <int ...I> struct C<0, I...> {
-		template <typename R> static R concat(R (*f)(A...), const iocshArgBuf *args)
+		template <typename R> static R concat(R (*f)(A...), const iocshArgBuf *args, Context *ctx)
 		{
-			return Index<I...>::dispatch(f, args);
+			return Index<I...>::dispatch(f, args, ctx);
 		}
 	};
 
 	/* Build index pack and dispatch 'f' */
-	template <typename R> static R arrange( R(*f)(A...), const iocshArgBuf *args)
+	template <typename R> static R arrange( R(*f)(A...), const iocshArgBuf *args, Context *ctx)
 	{
-		return C<sizeof...(A)>::concat( f, args );
+		return C<sizeof...(A)>::concat( f, args, ctx );
 	}
 };
 
+/*
+ * Use template argument deduction to figure out types 'A' and 'R' automatically
+ * so that the correct Guesser can be instantiated.
+ */
 template <typename SIG, typename R, typename ...A> Guesser<R, SIG> makeGuesser(R (*f)(A...))
 {
 	return Guesser<R, SIG>();
@@ -844,12 +847,17 @@ static void
 dispatch(R (*f)(A...), const iocshArgBuf *args, typename EvalResult<R>::PrinterType printer)
 {
 	try {
-		( EvalResult<R>( printer ), ArgOrder<A...>::arrange( f, args ) );
+		Context ctx;
+		( EvalResult<R>( printer ), /* <== magic 'operator,' */
+		  ArgOrder<A...>::arrange( f, args , &ctx ) );
 	} catch ( ConversionError &e ) {
 		errlogPrintf( "Error: Invalid Argument -- %s\n", e.what() );
 	}
 }
 
+/*
+ * This is the 'iocshCallFunc'
+ */
 template <typename RR, RR *p> void call(const iocshArgBuf *args)
 {
 	dispatch( p, args, makeGuesser<RR>( p ).template getPrinter<p>() );
@@ -961,7 +969,7 @@ done:
 		try {                                                            \
 			EvalResult<R>(                                               \
 				Guesser<R, type>().template getPrinter<func> ()          \
-            ), func( args );                                             \
+            ), func( args ); /* <= magic 'operator,' */                  \
 		} catch ( IocshDeclWrapper::ConversionError &e ) {               \
 			errlogPrintf( "Error: Invalid Argument -- %s\n", e.what() ); \
 		}                                                                \
