@@ -243,7 +243,7 @@ implementation of `PrinterBase`.
 #### The `PrintFmts` Template
 
 The default version of `PrinterBase` can handle any data type
-which can be printed by `errlogPrintf` with a suitable format.
+which can be printed by `errlogPrintf` using a suitable format.
 
 The purpose of `template <typename T> struct PrintFmts` template is
 supplying a suitable `errlogPrintf` format for type `T`.
@@ -255,7 +255,7 @@ versions of a result.
 
 As usual, the default specializations for the standard types
 may be overridden by providing a more specific version for the
-`USER=0` argument.
+explicit `USER=0` argument.
 
 #### The `Printer` Template
 
@@ -298,6 +298,6 @@ Summarizing the purpose of the multiple print-related templates:
     - specialize `PrintFmts` if possible
     - if the type cannot be displayed by `printf` or you don't
       like the default version then specialize `PrinterBase`
-      to handle the specific type).
+      to handle the specific type.
 - If you need a special `print` method specifically for your user-
   function then you should specialize `Printer` for your function.
