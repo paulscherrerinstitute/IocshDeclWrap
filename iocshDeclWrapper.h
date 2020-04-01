@@ -1,6 +1,8 @@
 #ifndef IOCSH_FUNC_WRAPPER_H
 #define IOCSH_FUNC_WRAPPER_H
 
+/* Till Straumann <till.straumann@psi.ch>, PSI, 2020 */
+
 #ifndef __cplusplus
 #error "This header requires C++"
 #endif
