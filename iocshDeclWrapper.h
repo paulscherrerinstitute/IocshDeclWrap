@@ -392,6 +392,17 @@ template <typename T, int USER> struct Convert<T, typename is_cplx<T>::type, USE
 	}
 };
 
+/* Work-around for C++89 */
+template <typename T> struct Reference {
+	typedef T&        type;
+	typedef const T &ctype;
+};
+
+template <typename T> struct Reference<T&> {
+	typedef T&        type;
+	typedef const T &ctype;
+};
+
 /*
  * Handling the result of the user function; we use an (overridable) 'print'
  * function that we apply to the result.
@@ -406,7 +417,7 @@ template <typename T, int USER> struct Convert<T, typename is_cplx<T>::type, USE
 template <typename R> class EvalResult {
 public:
 	/* Printer function */
-	typedef void (*PrinterType) (const R &); 
+	typedef void (*PrinterType) (typename Reference<R>::ctype); 
 private:
 	PrinterType pri;
 public:
@@ -416,7 +427,7 @@ public:
 	}
 
 	/* Our ',' operator applies the printer function */
-	void operator,(const R &result)
+	void operator,(typename Reference<R>::ctype result)
 	{
 		pri( result );
 	}
@@ -583,7 +594,7 @@ template <typename T, int USER> struct PrintFmts<T, typename is_chrp<T>::type, U
  */
 template <typename T, typename R, int USER = 0> class PrinterBase {
 public:
-	static void print( const R &r ) {
+	static void print( typename Reference<R>::ctype r ) {
 		const char **fmts = PrintFmts<R,R>::get();
 		if ( ! fmts ) {
 			errlogPrintf("<No print format for this return type implemented>\n");
@@ -617,7 +628,7 @@ public:
  */
 template <typename T, int USER> class PrinterBase< T, typename is_str<T>::type, USER > {
 public:
-	static void print( const T & r )
+	static void print( typename Reference<T>::ctype r )
 	{
 		PrinterBase< const char *, const char *, USER >::print( r.c_str() );
 	}
@@ -625,7 +636,7 @@ public:
 
 template <typename T, int USER> class PrinterBase< T, typename is_strp<T>::type, USER > {
 public:
-	static void print( const T & r )
+	static void print( typename Reference<T>::ctype r )
 	{
 		PrinterBase< const char *, const char *, USER >::print( r->c_str() );
 	}
@@ -636,6 +647,27 @@ public:
  * Can be specialized for a particular user function 'sig'
  */
 template <typename R, typename SIG, SIG *sig> class Printer : public PrinterBase<R, R> {
+};
+
+/*
+ * Build a Printer signature
+ */
+template <typename R, typename SIG> struct Guesser {
+	typedef typename EvalResult<R>::PrinterType PrinterType;
+
+	template <SIG *sig> static PrinterType getPrinter()
+	{
+		return Printer<R, SIG, sig>::print;
+	}
+};
+
+template <typename SIG> struct Guesser<void, SIG> {
+	typedef typename EvalResult<void>::PrinterType PrinterType;
+
+	template <SIG *sig> static PrinterType getPrinter()
+	{
+		return 0;
+	}
 };
 
 /*
@@ -782,27 +814,6 @@ template <typename ...A> struct ArgOrder {
 	}
 };
 
-/*
- * Build a Printer signature
- */
-template <typename R, typename SIG> struct Guesser {
-	typedef typename EvalResult<R>::PrinterType PrinterType;
-
-	template <SIG *sig> PrinterType getPrinter()
-	{
-		return Printer<R, SIG, sig>::print;
-	}
-};
-
-template <typename SIG> struct Guesser<void, SIG> {
-	typedef typename EvalResult<void>::PrinterType PrinterType;
-
-	template <SIG *sig> PrinterType getPrinter()
-	{
-		return 0;
-	}
-};
-
 template <typename SIG, typename R, typename ...A> Guesser<R, SIG> makeGuesser(R (*f)(A...))
 {
 	return Guesser<R, SIG>();
@@ -925,13 +936,15 @@ done:
  * supported max. - 1); see below...
  */
 
-#define IOCSH_DECL_WRAPPER_DO_CALL(args...)                \
-	do {                                                   \
-		try {                                              \
-			func( args );                                  \
-		} catch ( IocshDeclWrapper::ConversionError &e ) { \
+#define IOCSH_DECL_WRAPPER_DO_CALL(args...)                              \
+	do {                                                                 \
+		try {                                                            \
+			EvalResult<R>(                                               \
+				Guesser<R, type>().template getPrinter<func> ()          \
+            ), func( args );                                             \
+		} catch ( IocshDeclWrapper::ConversionError &e ) {               \
 			errlogPrintf( "Error: Invalid Argument -- %s\n", e.what() ); \
-		}                                                  \
+		}                                                                \
 	} while (0)
 
 template <typename R, typename A0, typename A1, typename A2, typename A3, typename A4,
