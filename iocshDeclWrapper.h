@@ -176,7 +176,7 @@ public:
 /*
  * Converter to map between user function arguments and iocshArg/iocshArgBuf
  */
-template <typename T, typename R, int USER=0> struct Convert {
+template <typename T, typename R = T, int USER=0> struct Convert {
 	/*
 	 * Set argument type and default name in iocshArg for type 'T'.
 	 */
@@ -200,7 +200,7 @@ iocshArg *makeArg(const char *aname = 0)
 	iocshArg *rval = new iocshArg;
 
 	rval->name = 0;
-	Convert<T,T,0>::setArg( rval );
+	Convert<T>::setArg( rval );
 	if ( aname ) {
 		rval->name = aname;
 	}
@@ -819,7 +819,7 @@ template <typename ...A> struct ArgOrder {
 		/* Once we have a pair of parameter packs: A... I... we can expand */
 		template <typename R> static R dispatch(R (*f)(A...), const iocshArgBuf *args, Context *ctx)
 		{
-			return f( IocshDeclWrapper::Convert<A,A>::getArg( &args[I], ctx )... );
+			return f( Convert<A>::getArg( &args[I], ctx )... );
 		}
 	};
 
@@ -980,8 +980,8 @@ done:
  * around the user function.
  *
  * Without support for variadic templates (C++98) we must provide a specialization
- * for every number of arguments from 0 .. IOCSH_FUNC_WRAP_MAX_ARGS - 1 (currently
- * supported max. - 1); see below...
+ * for every possible number of arguments from 0 .. IOCSH_FUNC_WRAP_MAX_ARGS - 1
+ * (currently supported max. - 1); see below...
  */
 
 #define IOCSH_DECL_WRAPPER_DO_CALL(args...)                              \
@@ -1035,16 +1035,16 @@ public:
 	{
 		IocshDeclWrapper::Context ctx;
 		IOCSH_DECL_WRAPPER_DO_CALL(
-			IocshDeclWrapper::Convert<A0,A0>::getArg( &args[0], &ctx ),
-			IocshDeclWrapper::Convert<A1,A1>::getArg( &args[1], &ctx ),
-			IocshDeclWrapper::Convert<A2,A2>::getArg( &args[2], &ctx ),
-			IocshDeclWrapper::Convert<A3,A3>::getArg( &args[3], &ctx ),
-			IocshDeclWrapper::Convert<A4,A4>::getArg( &args[4], &ctx ),
-			IocshDeclWrapper::Convert<A5,A5>::getArg( &args[5], &ctx ),
-			IocshDeclWrapper::Convert<A6,A6>::getArg( &args[6], &ctx ),
-			IocshDeclWrapper::Convert<A7,A7>::getArg( &args[7], &ctx ),
-			IocshDeclWrapper::Convert<A8,A8>::getArg( &args[8], &ctx ),
-			IocshDeclWrapper::Convert<A9,A9>::getArg( &args[9], &ctx )
+			IocshDeclWrapper::Convert<A0>::getArg( &args[0], &ctx ),
+			IocshDeclWrapper::Convert<A1>::getArg( &args[1], &ctx ),
+			IocshDeclWrapper::Convert<A2>::getArg( &args[2], &ctx ),
+			IocshDeclWrapper::Convert<A3>::getArg( &args[3], &ctx ),
+			IocshDeclWrapper::Convert<A4>::getArg( &args[4], &ctx ),
+			IocshDeclWrapper::Convert<A5>::getArg( &args[5], &ctx ),
+			IocshDeclWrapper::Convert<A6>::getArg( &args[6], &ctx ),
+			IocshDeclWrapper::Convert<A7>::getArg( &args[7], &ctx ),
+			IocshDeclWrapper::Convert<A8>::getArg( &args[8], &ctx ),
+			IocshDeclWrapper::Convert<A9>::getArg( &args[9], &ctx )
 		);
 	}
 };
@@ -1072,15 +1072,15 @@ public:
 	{
 		IocshDeclWrapper::Context ctx;
 		IOCSH_DECL_WRAPPER_DO_CALL(
-			IocshDeclWrapper::Convert<A0,A0>::getArg( &args[0], &ctx ),
-			IocshDeclWrapper::Convert<A1,A1>::getArg( &args[1], &ctx ),
-			IocshDeclWrapper::Convert<A2,A2>::getArg( &args[2], &ctx ),
-			IocshDeclWrapper::Convert<A3,A3>::getArg( &args[3], &ctx ),
-			IocshDeclWrapper::Convert<A4,A4>::getArg( &args[4], &ctx ),
-			IocshDeclWrapper::Convert<A5,A5>::getArg( &args[5], &ctx ),
-			IocshDeclWrapper::Convert<A6,A6>::getArg( &args[6], &ctx ),
-			IocshDeclWrapper::Convert<A7,A7>::getArg( &args[7], &ctx ),
-			IocshDeclWrapper::Convert<A8,A8>::getArg( &args[8], &ctx )
+			IocshDeclWrapper::Convert<A0>::getArg( &args[0], &ctx ),
+			IocshDeclWrapper::Convert<A1>::getArg( &args[1], &ctx ),
+			IocshDeclWrapper::Convert<A2>::getArg( &args[2], &ctx ),
+			IocshDeclWrapper::Convert<A3>::getArg( &args[3], &ctx ),
+			IocshDeclWrapper::Convert<A4>::getArg( &args[4], &ctx ),
+			IocshDeclWrapper::Convert<A5>::getArg( &args[5], &ctx ),
+			IocshDeclWrapper::Convert<A6>::getArg( &args[6], &ctx ),
+			IocshDeclWrapper::Convert<A7>::getArg( &args[7], &ctx ),
+			IocshDeclWrapper::Convert<A8>::getArg( &args[8], &ctx )
 		);
 	}
 };
@@ -1108,14 +1108,14 @@ public:
 	{
 		IocshDeclWrapper::Context ctx;
 		IOCSH_DECL_WRAPPER_DO_CALL(
-			IocshDeclWrapper::Convert<A0,A0>::getArg( &args[0], &ctx ),
-			IocshDeclWrapper::Convert<A1,A1>::getArg( &args[1], &ctx ),
-			IocshDeclWrapper::Convert<A2,A2>::getArg( &args[2], &ctx ),
-			IocshDeclWrapper::Convert<A3,A3>::getArg( &args[3], &ctx ),
-			IocshDeclWrapper::Convert<A4,A4>::getArg( &args[4], &ctx ),
-			IocshDeclWrapper::Convert<A5,A5>::getArg( &args[5], &ctx ),
-			IocshDeclWrapper::Convert<A6,A6>::getArg( &args[6], &ctx ),
-			IocshDeclWrapper::Convert<A7,A7>::getArg( &args[7], &ctx )
+			IocshDeclWrapper::Convert<A0>::getArg( &args[0], &ctx ),
+			IocshDeclWrapper::Convert<A1>::getArg( &args[1], &ctx ),
+			IocshDeclWrapper::Convert<A2>::getArg( &args[2], &ctx ),
+			IocshDeclWrapper::Convert<A3>::getArg( &args[3], &ctx ),
+			IocshDeclWrapper::Convert<A4>::getArg( &args[4], &ctx ),
+			IocshDeclWrapper::Convert<A5>::getArg( &args[5], &ctx ),
+			IocshDeclWrapper::Convert<A6>::getArg( &args[6], &ctx ),
+			IocshDeclWrapper::Convert<A7>::getArg( &args[7], &ctx )
 		);
 	}
 };
@@ -1143,13 +1143,13 @@ public:
 	{
 		IocshDeclWrapper::Context ctx;
 		IOCSH_DECL_WRAPPER_DO_CALL(
-			IocshDeclWrapper::Convert<A0,A0>::getArg( &args[0], &ctx ),
-			IocshDeclWrapper::Convert<A1,A1>::getArg( &args[1], &ctx ),
-			IocshDeclWrapper::Convert<A2,A2>::getArg( &args[2], &ctx ),
-			IocshDeclWrapper::Convert<A3,A3>::getArg( &args[3], &ctx ),
-			IocshDeclWrapper::Convert<A4,A4>::getArg( &args[4], &ctx ),
-			IocshDeclWrapper::Convert<A5,A5>::getArg( &args[5], &ctx ),
-			IocshDeclWrapper::Convert<A6,A6>::getArg( &args[6], &ctx )
+			IocshDeclWrapper::Convert<A0>::getArg( &args[0], &ctx ),
+			IocshDeclWrapper::Convert<A1>::getArg( &args[1], &ctx ),
+			IocshDeclWrapper::Convert<A2>::getArg( &args[2], &ctx ),
+			IocshDeclWrapper::Convert<A3>::getArg( &args[3], &ctx ),
+			IocshDeclWrapper::Convert<A4>::getArg( &args[4], &ctx ),
+			IocshDeclWrapper::Convert<A5>::getArg( &args[5], &ctx ),
+			IocshDeclWrapper::Convert<A6>::getArg( &args[6], &ctx )
 		);
 	}
 };
@@ -1177,12 +1177,12 @@ public:
 	{
 		IocshDeclWrapper::Context ctx;
 		IOCSH_DECL_WRAPPER_DO_CALL(
-			IocshDeclWrapper::Convert<A0,A0>::getArg( &args[0], &ctx ),
-			IocshDeclWrapper::Convert<A1,A1>::getArg( &args[1], &ctx ),
-			IocshDeclWrapper::Convert<A2,A2>::getArg( &args[2], &ctx ),
-			IocshDeclWrapper::Convert<A3,A3>::getArg( &args[3], &ctx ),
-			IocshDeclWrapper::Convert<A4,A4>::getArg( &args[4], &ctx ),
-			IocshDeclWrapper::Convert<A5,A5>::getArg( &args[5], &ctx )
+			IocshDeclWrapper::Convert<A0>::getArg( &args[0], &ctx ),
+			IocshDeclWrapper::Convert<A1>::getArg( &args[1], &ctx ),
+			IocshDeclWrapper::Convert<A2>::getArg( &args[2], &ctx ),
+			IocshDeclWrapper::Convert<A3>::getArg( &args[3], &ctx ),
+			IocshDeclWrapper::Convert<A4>::getArg( &args[4], &ctx ),
+			IocshDeclWrapper::Convert<A5>::getArg( &args[5], &ctx )
 		);
 	}
 };
@@ -1209,11 +1209,11 @@ public:
 	{
 		IocshDeclWrapper::Context ctx;
 		IOCSH_DECL_WRAPPER_DO_CALL(
-			IocshDeclWrapper::Convert<A0,A0>::getArg( &args[0], &ctx ),
-			IocshDeclWrapper::Convert<A1,A1>::getArg( &args[1], &ctx ),
-			IocshDeclWrapper::Convert<A2,A2>::getArg( &args[2], &ctx ),
-			IocshDeclWrapper::Convert<A3,A3>::getArg( &args[3], &ctx ),
-			IocshDeclWrapper::Convert<A4,A4>::getArg( &args[4], &ctx )
+			IocshDeclWrapper::Convert<A0>::getArg( &args[0], &ctx ),
+			IocshDeclWrapper::Convert<A1>::getArg( &args[1], &ctx ),
+			IocshDeclWrapper::Convert<A2>::getArg( &args[2], &ctx ),
+			IocshDeclWrapper::Convert<A3>::getArg( &args[3], &ctx ),
+			IocshDeclWrapper::Convert<A4>::getArg( &args[4], &ctx )
 		);
 	}
 };
@@ -1240,10 +1240,10 @@ public:
 	{
 		IocshDeclWrapper::Context ctx;
 		IOCSH_DECL_WRAPPER_DO_CALL(
-			IocshDeclWrapper::Convert<A0,A0>::getArg( &args[0], &ctx ),
-			IocshDeclWrapper::Convert<A1,A1>::getArg( &args[1], &ctx ),
-			IocshDeclWrapper::Convert<A2,A2>::getArg( &args[2], &ctx ),
-			IocshDeclWrapper::Convert<A3,A3>::getArg( &args[3], &ctx )
+			IocshDeclWrapper::Convert<A0>::getArg( &args[0], &ctx ),
+			IocshDeclWrapper::Convert<A1>::getArg( &args[1], &ctx ),
+			IocshDeclWrapper::Convert<A2>::getArg( &args[2], &ctx ),
+			IocshDeclWrapper::Convert<A3>::getArg( &args[3], &ctx )
 		);
 	}
 };
@@ -1270,9 +1270,9 @@ public:
 	{
 		IocshDeclWrapper::Context ctx;
 		IOCSH_DECL_WRAPPER_DO_CALL(
-			IocshDeclWrapper::Convert<A0,A0>::getArg( &args[0], &ctx ),
-			IocshDeclWrapper::Convert<A1,A1>::getArg( &args[1], &ctx ),
-			IocshDeclWrapper::Convert<A2,A2>::getArg( &args[2], &ctx )
+			IocshDeclWrapper::Convert<A0>::getArg( &args[0], &ctx ),
+			IocshDeclWrapper::Convert<A1>::getArg( &args[1], &ctx ),
+			IocshDeclWrapper::Convert<A2>::getArg( &args[2], &ctx )
 		);
 	}
 };
@@ -1299,8 +1299,8 @@ public:
 	{
 		IocshDeclWrapper::Context ctx;
 		IOCSH_DECL_WRAPPER_DO_CALL(
-			IocshDeclWrapper::Convert<A0,A0>::getArg( &args[0], &ctx ),
-			IocshDeclWrapper::Convert<A1,A1>::getArg( &args[1], &ctx )
+			IocshDeclWrapper::Convert<A0>::getArg( &args[0], &ctx ),
+			IocshDeclWrapper::Convert<A1>::getArg( &args[1], &ctx )
 		);
 	}
 };
@@ -1328,7 +1328,7 @@ public:
 	{
 		IocshDeclWrapper::Context ctx;
 		IOCSH_DECL_WRAPPER_DO_CALL(
-			IocshDeclWrapper::Convert<A0,A0>::getArg( &args[0], &ctx )
+			IocshDeclWrapper::Convert<A0>::getArg( &args[0], &ctx )
 		);
 	}
 };
