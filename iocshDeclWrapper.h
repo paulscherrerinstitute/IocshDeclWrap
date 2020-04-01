@@ -392,7 +392,16 @@ template <typename T, int USER> struct Convert<T, typename is_cplx<T>::type, USE
 	}
 };
 
-/* Work-around for C++89 */
+/* Work-around for C++89
+ *  The idiom
+ *
+ *     Reference< some_type > :: type
+ *
+ * yields always a reference type -- even if 'some_type' already
+ * is a reference type.
+ *
+ * With C++11 this is not necessary but it still works...
+ */
 template <typename T> struct Reference {
 	typedef T&             type;
 	typedef const T &const_type;
@@ -404,14 +413,14 @@ template <typename T> struct Reference<T&> {
 };
 
 /*
- * Handling the result of the user function; we use an (overridable) 'print'
+ * Handling the result of the user function: we use an (overridable) 'print'
  * function that we apply to the result.
  * The problem here is that print( f() ) is an error if f() returns 'void'.
  * We use a trick: since the 'comma' expression '(x, f())' is valid even
  * if f() returns void we can use an object 'x' from a class that overrides
  * the ',' operator. Note that an overridden 'operator,' does not quite behave
  * like the normal one (see C++ standard) -- but the trick leaves the built-in
- * version in place for the 'void' variant but overrides everything else:
+ * version in place for the 'void' variant while overriding everything else:
  */
 
 template <typename R> class EvalResult {
