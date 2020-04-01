@@ -19,8 +19,8 @@ Wrapping a user function requires the following steps:
 4. point the `iocshArg*` array elements to the
    structs from step 3.
 5. define a wrapper function which extracts function
-   arguments from a `iocshArgBuf*` array and passes
-   them to the user function.
+   arguments from a `iocshArgBuf*` array, passes
+   them to the user function and prints its result.
 6. register the wrapper function and `iocshFuncDef`
    with iocsh. This is often done via a 'registrar'
    function that must be defined and declared in a
@@ -32,7 +32,7 @@ and optionally (6).
 ## Example
 
 Assume you want to access a user function (e.g.,
-written in 'C' ) from iocsh. The function 
+written in 'C' ) from iocsh. The function
 `myFunction` shall be declared in a header file:
 
     myHeader.h:
@@ -112,7 +112,22 @@ may have is limited to `IOCSH_FUNC_WRAP_MAX_ARGS` (currently
 
 ## Template Specializations
 
-The templates handle the passing of arguments between
+Converting function arguments and printing of function
+results is handled by `Convert` and `Printer` templates,
+respectively.
+
+These templates are specialized for specific types. The
+user may easily add specializations for types that are
+not implemented yet or in order to override an existing
+implementation.
+
+Note that a suitable declaration of the template specialization
+must be visible to the compiler from where `IOCSH_WRAP_FUNC()`
+is expanded.
+
+### Argument Conversions
+
+The `Convert` templates handle the passing of arguments between
 `iocshArgBuf` and the user function. This is implemented
 by template specializations for specific types. The
 standard integral types as well as `char*` (C-strings),
@@ -143,7 +158,7 @@ specialization:
       }
     };
 
-### Handling Conversion Errors
+#### Handling Conversion Errors
 
 In some cases `getArg` cannot convert a value. E.g., when converting
 from a string argument and the string is NULL or ill-formatted.
@@ -153,7 +168,7 @@ which is caught and results in an error message being printed to
 the console. The user function is not executed if such an error
 is thrown.
 
-### `Convert::getArg Context`
+#### `Convert::getArg Context`
 
 In more complex cases it is necessary to create an intermediate object
 during the conversion process. Such an object may need to be passed
@@ -184,8 +199,105 @@ create a new `std::string` which must exist until the user function returns:
 The `make<typename T, typename I>` works automatically as long as
 type `T` has a constructor that takes an argument of type `I`.
 
-### `Convert<>` Template Arguments
+#### `Convert<>` Template Arguments
 
-The `Convert<typename T, typename R>` template expects two arguments.
-This allows for SFINAE-style specializations that can handle multiple
-related types. Consult the header for examples/guidance.
+The `Convert<typename T, typename R, int USER>` template expects up
+to three arguments.
+The `R` type argument allows for SFINAE-style specializations that can
+handle multiple related types. Consult the header for examples/guidance.
+
+The `USER` argument can be used to add an even more specific
+specialization in order to override a default converter.
+
+If the user wishes, for example, to provide his/her own conversion for
+integral types then the template may be specialized for the explicit
+USER value 0:
+
+    template <typename T> struct Convert<T, typename is_int<T>::type, 0> {
+    }
+
+### Printing User Function Results
+
+The return value of a user function (provided that the function does
+not return `void`) is passed to the `print` static member of the
+`Printer` template.
+
+#### The `PrinterBase` Template
+
+`PrinterBase` is specialized for particular types of function return
+values and handles printing for individual types.
+
+    template <typename T, typename R, int USER = 0> class PrinterBase {
+      public:
+        /* The Reference<R>::const_type idiom is for C++98
+         * and resolves to 'const R &' -- even if R is already
+         * a reference type.
+         */
+	    static void print( typename Reference<R>::const_type r );
+    };
+
+You can implement a `PrinterBase` class specialization for your own
+types or by specializing `USER` to 0 you can override an existing
+implementation of `PrinterBase`.
+
+#### The `PrintFmts` Template
+
+The default version of `PrinterBase` can handle any data type
+which can be printed by `errlogPrintf` with a suitable format.
+
+The purpose of `template <typename T> struct PrintFmts` template is
+supplying a suitable `errlogPrintf` format for type `T`.
+
+The `get()` member returns a NULL terminated array of formats and
+`PrinterBase` prints the function result for each one of these formats.
+This can be used, e.g., to print decimal as well as hexadecimal
+versions of a result.
+
+As usual, the default specializations for the standard types
+may be overridden by providing a more specific version for the
+`USER=0` argument.
+
+#### The `Printer` Template
+
+The purpose of `Printer` is adding the possibility for providing
+a specialization for a specific user function.
+	
+The `Printer` template normally derives from its base class `PrinterBase`
+and simply uses the base classes' `print` function:
+
+    template <typename R, typename SIG, SIG *sig> class Printer
+    : public PrinterBase<R, R>
+    {
+    };
+
+However, you may define a specialization that is specific for a particular
+user function, e.g.:
+
+    int mySpecialFunction();
+
+    template <> class Printer<int, int(), mySpecialFunction> : 
+    : public PrinterBase<int, int> {
+      public:
+
+      static void print(const int &v) {
+         /* Example: only a particular bit is of interest: */
+         errlogPrintf( "mySpecialFunction returned: %s\n", v & (1<<8) ? "TRUE" : "FALSE" );
+      }
+
+    };
+    
+#### Printing Summary
+
+Summarizing the purpose of the multiple print-related templates:
+
+- The default implementation of `PrinterBase` can handle types
+  which can be printed using standard `printf`-style formats.
+- The default implementation of `PrinterBase` uses a suitable
+  specialization of `PrintFmts` to obtain a `printf`-style format.
+- In order to print a specific data type:
+    - specialize `PrintFmts` if possible
+    - if the type cannot be displayed by `printf` or you don't
+      like the default version then specialize `PrinterBase`
+      to handle the specific type).
+- If you need a special `print` method specifically for your user-
+  function then you should specialize `Printer` for your function.

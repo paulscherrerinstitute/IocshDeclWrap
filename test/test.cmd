@@ -29,6 +29,8 @@ mycStringp("mycStringp")
 myHello("myHello")
 mycHello("mycHello")
 
+myFuncInt( 321 )
+
 myFuncShort(-3)
 
 myFloat(1.234)
@@ -38,7 +40,7 @@ myDouble(5.678)
 myComplex
 myComplex 1.234j5.678
 
-genMyType()
+genMyType( 44 )
 
 testCheck()
 exit

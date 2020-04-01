@@ -394,13 +394,13 @@ template <typename T, int USER> struct Convert<T, typename is_cplx<T>::type, USE
 
 /* Work-around for C++89 */
 template <typename T> struct Reference {
-	typedef T&        type;
-	typedef const T &ctype;
+	typedef T&             type;
+	typedef const T &const_type;
 };
 
 template <typename T> struct Reference<T&> {
-	typedef T&        type;
-	typedef const T &ctype;
+	typedef T&             type;
+	typedef const T &const_type;
 };
 
 /*
@@ -417,7 +417,7 @@ template <typename T> struct Reference<T&> {
 template <typename R> class EvalResult {
 public:
 	/* Printer function */
-	typedef void (*PrinterType) (typename Reference<R>::ctype);
+	typedef void (*PrinterType) (typename Reference<R>::const_type);
 private:
 	PrinterType pri;
 public:
@@ -427,7 +427,7 @@ public:
 	}
 
 	/* Our ',' operator applies the printer function */
-	void operator,(typename Reference<R>::ctype result)
+	void operator,(typename Reference<R>::const_type result)
 	{
 		pri( result );
 	}
@@ -460,7 +460,7 @@ public:
  * as in hexadecimal.
  */
 
-template <typename T, typename R, int USER = 0> struct PrintFmts {
+template <typename T, typename R = T, int USER = 0> struct PrintFmts {
 	static const char **get()
 	{
 		return 0;
@@ -599,7 +599,7 @@ template <typename T, int USER> struct PrintFmts<T, typename is_chrp<T>::type, U
  */
 template <typename T, typename R, int USER = 0> class PrinterBase {
 public:
-	static void print( typename Reference<R>::ctype r ) {
+	static void print( typename Reference<R>::const_type r ) {
 		const char **fmts = PrintFmts<R,R>::get();
 		if ( ! fmts ) {
 			errlogPrintf("<No print format for this return type implemented>\n");
@@ -622,7 +622,7 @@ public:
  *         ...
  *    };
  */
-template <typename T, int USER> class PrinterBase< std::complex<T>, typename is_cplx< std::complex<T> >::type, USER > {
+template <typename T, int USER> class PrinterBase< T, typename is_cplx< T >::type, USER > {
 public:
 	static void print( const std::complex<T> &r )
 	{
@@ -635,7 +635,7 @@ public:
  */
 template <typename T, int USER> class PrinterBase< T, typename is_str<T>::type, USER > {
 public:
-	static void print( typename Reference<T>::ctype r )
+	static void print( typename Reference<T>::const_type r )
 	{
 		PrinterBase< const char *, const char *, USER >::print( r.c_str() );
 	}
@@ -643,7 +643,7 @@ public:
 
 template <typename T, int USER> class PrinterBase< T, typename is_strp<T>::type, USER > {
 public:
-	static void print( typename Reference<T>::ctype r )
+	static void print( typename Reference<T>::const_type r )
 	{
 		PrinterBase< const char *, const char *, USER >::print( r->c_str() );
 	}

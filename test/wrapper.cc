@@ -26,7 +26,7 @@ template <> struct IocshDeclWrapper::PrintFmts<const char *, const char *>
  *  grep 'testPassed[\t]*[+][+]' wrapper.cc  | wc
  * over this file
  */
-#define NUM_TESTS 23
+#define NUM_TESTS 26
 
 std::string myString(std::string s)
 {
@@ -260,11 +260,23 @@ int c10(int a0, int a1, int a2, int a3, int a4, int a5, int a6, int a7, int a8, 
 	return printf("A10 %i %i %i %i %i %i %i %i %i %i\n", a0, a1, a2, a3, a4, a5, a6, a7, a8, a9);
 }
 
-class MyType {};
+class MyType {
+	int i;
+public:
+	MyType(int i)
+	: i( i )
+	{
+	}
 
-MyType genMyType()
+	int operator()() const
+	{
+		return i;
+	}
+};
+
+MyType genMyType(MyType &r)
 {
-	return MyType();
+	return r;
 }
 
 std::complex<double> myComplex(std::complex<double> val)
@@ -297,14 +309,86 @@ namespace IocshDeclWrapper {
 
 using namespace IocshDeclWrapperTest;
 
-template <> class Printer<MyType, MyType(), genMyType> : public PrinterBase<MyType, MyType> {
+template <> class Convert<MyType &, MyType &> {
+public:
+	static void setArg( iocshArg *a )
+	{
+		a->name = "MyType";
+		a->type = iocshArgInt;
+	}
+	
+	static MyType & getArg( const iocshArgBuf *arg, Context *ctx )
+	{
+		testPassed++;
+		return *ctx->make<MyType>( arg->ival );
+	}
+};
+
+template <> class Printer<MyType, MyType(MyType &), genMyType> : public PrinterBase<MyType, MyType> {
 public:
 	static void print(const MyType & r)
 	{
-		errlogPrintf("Printer for 'MyType'\n");
-		testPassed++;
+		if ( 44 == r() ) testPassed++; else testFailed++;
+		errlogPrintf("Printer for 'MyType' : %i\n", r());
 	}
 };
+
+template <> class Printer<int, int(int), myFuncInt> : public PrinterBase<int,int> {
+public:
+	static void print(const int &v)
+	{
+		if (321 == v) testPassed++; else testFailed++;
+		errlogPrintf("Printer for myFuncInt (v==321) ? %s\n", (321==v) ? "TRUE" : "FALSE" );
+	}
+};
+
+/* More specialized than:
+ *  template <typename T> class PrinterBase< T, typename is_cplx< T >::type > { }
+ *
+ * Alternatively we could also use
+template <typename T> class PrinterBase< T, typename is_cplx< T >::type, 0 > { }
+ */
+#undef  USE_INTEGER_SPECIFIER
+#ifdef  USE_INTEGER_SPECIFIER
+template <typename T> class PrinterBase< T, typename is_cplx< T >::type, 0 > 
+{
+public:
+	static void print(const T &r)
+	{
+		const char **fmts = PrintFmts<typename T::value_type>::get();
+		if ( ! fmts) {
+			testFailed++;
+		} else {
+			errlogPrintf("My Complex Printer ");
+			errlogPrintf( fmts[0], r.real());
+			errlogPrintf(" J ");
+			errlogPrintf( fmts[0], r.imag());
+			errlogPrintf("\n");
+			testPassed++;
+		}
+	}
+};
+#else
+template <typename T> class PrinterBase< std::complex<T>, typename is_cplx< std::complex<T> >::type >
+{
+public:
+	static void print(const std::complex<T> &r)
+	{
+		const char **fmts = PrintFmts<T>::get();
+		if ( ! fmts) {
+			testFailed++;
+		} else {
+			errlogPrintf("My Complex Printer ");
+			errlogPrintf( fmts[0], r.real());
+			errlogPrintf(" J ");
+			errlogPrintf( fmts[0], r.imag());
+			errlogPrintf("\n");
+			testPassed++;
+		}
+	}
+};
+#endif
+
 
 }
 
