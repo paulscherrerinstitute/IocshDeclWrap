@@ -2,7 +2,7 @@
 
 Till Straumann, 2020/3
 
-This module is hosted on
+*IocshDeclWraper* is hosted on
 [github](https://github.com/paulscherrerinstitute/IocshDeclWrap.git)
 
 ## Introduction
