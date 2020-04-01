@@ -36,11 +36,13 @@ myFuncShort(-3)
 myFloat(1.234)
 myDouble(5.678)
 
-# expected to fail
+# "vvvvvv Next line is *expected* to fail *********"
 myComplex
 myComplex 1.234j5.678
 
 genMyType( 44 )
+
+testNonPrinting
 
 testCheck()
 exit

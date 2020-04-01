@@ -26,7 +26,7 @@ template <> struct IocshDeclWrapper::PrintFmts<const char *, const char *>
  *  grep 'testPassed[\t]*[+][+]' wrapper.cc  | wc
  * over this file
  */
-#define NUM_TESTS 26
+#define NUM_TESTS 27
 
 std::string myString(std::string s)
 {
@@ -39,7 +39,7 @@ std::string & myStringr(std::string &s)
 {
 	if ( strcmp( s.c_str(), "myStringr" ) ) testFailed++; else testPassed++;
 	printf("my STRINGr %s\n", s.c_str());
-	/* cannot just hand 's' back since it may not outlive 
+	/* cannot just hand 's' back since it may not outlive
 	 * this function call!
 	 */
 	return * new std::string( s );
@@ -56,7 +56,7 @@ std::string * myStringp(std::string *s)
 {
 	if ( strcmp( s->c_str(), "myStringp" ) ) testFailed++; else testPassed++;
 	printf("my STRINGp %s\n", s ? s->c_str() : "<NULL>");
-	/* cannot just hand 's' back since it may not outlive 
+	/* cannot just hand 's' back since it may not outlive
 	 * this function call!
 	 */
 	return new std::string( *s );
@@ -103,7 +103,7 @@ extern "C" char * myHello(char *m)
 {
 	if ( strcmp( m, "myHello" ) ) testFailed++; else testPassed++;
 	printf("From myHello: %s\n", m );
-	/* cannot just hand 'm' back since it may not outlive 
+	/* cannot just hand 'm' back since it may not outlive
 	 * this function call!
 	 */
 	return strdup( m );
@@ -113,7 +113,7 @@ extern "C" const char * mycHello(const char *m)
 {
 	if ( strcmp( m, "mycHello" ) ) testFailed++; else testPassed++;
 	printf("From mycHello: %s\n", m);
-	/* cannot just hand 'm' back since it may not outlive 
+	/* cannot just hand 'm' back since it may not outlive
 	 * this function call!
 	 */
 	return strdup(m);
@@ -274,6 +274,12 @@ public:
 	}
 };
 
+MyType testNonPrinting()
+{
+	testPassed++; /* the printer decrements when executed */
+	return MyType( 0 );
+}
+
 MyType genMyType(MyType &r)
 {
 	return r;
@@ -316,7 +322,7 @@ public:
 		a->name = "MyType";
 		a->type = iocshArgInt;
 	}
-	
+
 	static MyType & getArg( const iocshArgBuf *arg, Context *ctx )
 	{
 		testPassed++;
@@ -324,12 +330,23 @@ public:
 	}
 };
 
-template <> class Printer<MyType, MyType(MyType &), genMyType> : public PrinterBase<MyType, MyType> {
+template <> class PrinterBase<MyType, MyType> {
 public:
 	static void print(const MyType & r)
 	{
 		if ( 44 == r() ) testPassed++; else testFailed++;
 		errlogPrintf("Printer for 'MyType' : %i\n", r());
+	}
+};
+
+template <> class Printer<MyType, MyType(), testNonPrinting> : public PrinterBase<MyType, MyType> {
+public:
+	static void print(const MyType & r)
+	{
+		// this should not be called
+		testFailed++;
+		testPassed--;
+		errlogPrintf("Printer for 'testNonPrinting' : %i\n", r());
 	}
 };
 
@@ -350,7 +367,7 @@ template <typename T> class PrinterBase< T, typename is_cplx< T >::type, 0 > { }
  */
 #undef  USE_INTEGER_SPECIFIER
 #ifdef  USE_INTEGER_SPECIFIER
-template <typename T> class PrinterBase< T, typename is_cplx< T >::type, 0 > 
+template <typename T> class PrinterBase< T, typename is_cplx< T >::type, 0 >
 {
 public:
 	static void print(const T &r)
@@ -424,6 +441,7 @@ IOCSH_FUNC_WRAP_REGISTRAR(wrapperRegister,
 	IOCSH_FUNC_WRAP( mycStringp );
 	IOCSH_FUNC_WRAP( myComplex  );
 	IOCSH_FUNC_WRAP( genMyType  );
+	IOCSH_FUNC_WRAP_QUIET( testNonPrinting  );
 )
 
 epicsExportAddress(int, testPassed);

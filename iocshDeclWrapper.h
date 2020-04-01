@@ -425,7 +425,7 @@ template <typename T> struct Reference<T&> {
  * version in place for the 'void' variant while overriding everything else:
  */
 
-template <typename R> class EvalResult {
+template <typename R, bool PRINT=true> class EvalResult {
 public:
 	/* Printer function */
 	typedef void (*PrinterType) (typename Reference<R>::const_type);
@@ -440,7 +440,9 @@ public:
 	/* Our ',' operator applies the printer function */
 	void operator,(typename Reference<R>::const_type result)
 	{
-		pri( result );
+		if ( PRINT ) {
+			pri( result );
+		}
 	}
 };
 
@@ -449,7 +451,7 @@ public:
  * comma operator.
  * The print function type is just a dummy...
  */
-template <> class EvalResult<void> {
+template <bool PRINT> class EvalResult<void, PRINT> {
 public:
 	/* Printer function */
 	typedef void *PrinterType;
@@ -853,13 +855,13 @@ template <typename SIG, typename R, typename ...A> Guesser<R, SIG> makeGuesser(R
 	return Guesser<R, SIG>();
 }
 
-template <typename R, typename ...A>
+template <bool PRINT, typename R, typename ...A>
 static void
 dispatch(R (*f)(A...), const iocshArgBuf *args, typename EvalResult<R>::PrinterType printer)
 {
 	try {
 		Context ctx;
-		( EvalResult<R>( printer ), /* <== magic 'operator,' */
+		( EvalResult<R, PRINT>( printer ), /* <== magic 'operator,' */
 		  ArgOrder<A...>::arrange( f, args , &ctx ) );
 	} catch ( ConversionError &e ) {
 		errlogPrintf( "Error: Invalid Argument -- %s\n", e.what() );
@@ -869,18 +871,25 @@ dispatch(R (*f)(A...), const iocshArgBuf *args, typename EvalResult<R>::PrinterT
 /*
  * This is the 'iocshCallFunc'
  */
-template <typename RR, RR *p> void call(const iocshArgBuf *args)
+template <typename RR, RR *p, bool PRINT=true> void call(const iocshArgBuf *args)
 {
-	dispatch( p, args, makeGuesser<RR>( p ).template getPrinter<p>() );
+	dispatch<PRINT>( p, args, makeGuesser<RR>( p ).template getPrinter<p>() );
 }
 
 }
 
-#define IOCSH_FUNC_WRAP(x,argHelps...) do {                                  \
-	using IocshDeclWrapper::buildArgs;                                       \
-	using IocshDeclWrapper::call;                                            \
-	iocshRegister( buildArgs( #x, x, { argHelps } ), call<decltype(x), x> ); \
+#define IOCSH_FUNC_WRAP(x,argHelps...) do {                                         \
+	using IocshDeclWrapper::buildArgs;                                              \
+	using IocshDeclWrapper::call;                                                   \
+	iocshRegister( buildArgs( #x, x, { argHelps } ), call<decltype(x), x> );        \
   } while (0)
+
+#define IOCSH_FUNC_WRAP_QUIET(x,argHelps...) do {                                   \
+	using IocshDeclWrapper::buildArgs;                                              \
+	using IocshDeclWrapper::call;                                                   \
+	iocshRegister( buildArgs( #x, x, { argHelps } ), call<decltype(x), x, false> ); \
+  } while (0)
+
 
 #else  /* __cplusplus < 201103L */
 
@@ -978,7 +987,7 @@ done:
 #define IOCSH_DECL_WRAPPER_DO_CALL(args...)                              \
 	do {                                                                 \
 		try {                                                            \
-			EvalResult<R>(                                               \
+			EvalResult<R, PRINT>(                                        \
 				Guesser<R, type>().template getPrinter<func> ()          \
             ), func( args ); /* <= magic 'operator,' */                  \
 		} catch ( IocshDeclWrapper::ConversionError &e ) {               \
@@ -1022,7 +1031,7 @@ public:
 	 * This instantiates this template and the instantiation 'knows' that 'func'
 	 * is in fact 'funcWeWantToWrap'...
 	 */
-	template <type *func> static void call(const iocshArgBuf *args)
+	template <type *func, bool PRINT> static void call(const iocshArgBuf *args)
 	{
 		IocshDeclWrapper::Context ctx;
 		IOCSH_DECL_WRAPPER_DO_CALL(
@@ -1059,7 +1068,7 @@ public:
 
 	const static int N = 9;
 
-	template <type *func> static void call(const iocshArgBuf *args)
+	template <type *func, bool PRINT> static void call(const iocshArgBuf *args)
 	{
 		IocshDeclWrapper::Context ctx;
 		IOCSH_DECL_WRAPPER_DO_CALL(
@@ -1095,7 +1104,7 @@ public:
 
 	const static int N = 8;
 
-	template <type *func> static void call(const iocshArgBuf *args)
+	template <type *func, bool PRINT> static void call(const iocshArgBuf *args)
 	{
 		IocshDeclWrapper::Context ctx;
 		IOCSH_DECL_WRAPPER_DO_CALL(
@@ -1130,7 +1139,7 @@ public:
 
 	const static int N = 7;
 
-	template <type *func> static void call(const iocshArgBuf *args)
+	template <type *func, bool PRINT> static void call(const iocshArgBuf *args)
 	{
 		IocshDeclWrapper::Context ctx;
 		IOCSH_DECL_WRAPPER_DO_CALL(
@@ -1164,7 +1173,7 @@ public:
 
 	const static int N = 6;
 
-	template <type *func> static void call(const iocshArgBuf *args)
+	template <type *func, bool PRINT> static void call(const iocshArgBuf *args)
 	{
 		IocshDeclWrapper::Context ctx;
 		IOCSH_DECL_WRAPPER_DO_CALL(
@@ -1196,7 +1205,7 @@ public:
 
 	const static int N = 5;
 
-	template <type *func> static void call(const iocshArgBuf *args)
+	template <type *func, bool PRINT> static void call(const iocshArgBuf *args)
 	{
 		IocshDeclWrapper::Context ctx;
 		IOCSH_DECL_WRAPPER_DO_CALL(
@@ -1227,7 +1236,7 @@ public:
 
 	const static int N = 4;
 
-	template <type *func> static void call(const iocshArgBuf *args)
+	template <type *func, bool PRINT> static void call(const iocshArgBuf *args)
 	{
 		IocshDeclWrapper::Context ctx;
 		IOCSH_DECL_WRAPPER_DO_CALL(
@@ -1257,7 +1266,7 @@ public:
 
 	const static int N = 3;
 
-	template <type *func> static void call(const iocshArgBuf *args)
+	template <type *func, bool PRINT> static void call(const iocshArgBuf *args)
 	{
 		IocshDeclWrapper::Context ctx;
 		IOCSH_DECL_WRAPPER_DO_CALL(
@@ -1286,7 +1295,7 @@ public:
 
 	const static int N = 2;
 
-	template <type *func> static void call(const iocshArgBuf *args)
+	template <type *func, bool PRINT> static void call(const iocshArgBuf *args)
 	{
 		IocshDeclWrapper::Context ctx;
 		IOCSH_DECL_WRAPPER_DO_CALL(
@@ -1315,7 +1324,7 @@ public:
 
 	const static int N = 1;
 
-	template <type *func> static void call(const iocshArgBuf *args)
+	template <type *func, bool PRINT> static void call(const iocshArgBuf *args)
 	{
 		IocshDeclWrapper::Context ctx;
 		IOCSH_DECL_WRAPPER_DO_CALL(
@@ -1343,7 +1352,7 @@ public:
 
 	const static int N = 0;
 
-	template <type *func> static void call(const iocshArgBuf *args)
+	template <type *func, bool PRINT> static void call(const iocshArgBuf *args)
 	{
 		IOCSH_DECL_WRAPPER_DO_CALL( );
 	}
@@ -1442,12 +1451,20 @@ Caller<R,void,void,void,void,void,void,void,void,void,void> makeCaller(R (*f)(vo
 
 #define IOCSH_FUNC_WRAP_MAX_ARGS 10
 
-#define IOCSH_FUNC_WRAP(x,argHelps...) do {                                           \
-	const char *argNames[IOCSH_FUNC_WRAP_MAX_ARGS + 1] = { argHelps };                \
-	using IocshDeclWrapper::buildArgs;                                                \
-	using IocshDeclWrapper::makeCaller;                                               \
-	iocshRegister( buildArgs( makeCaller(x), #x, argNames ), makeCaller(x).call<x> ); \
+#define IOCSH_FUNC_WRAP(x,argHelps...) do {                                                 \
+	const char *argNames[IOCSH_FUNC_WRAP_MAX_ARGS + 1] = { argHelps };                      \
+	using IocshDeclWrapper::buildArgs;                                                      \
+	using IocshDeclWrapper::makeCaller;                                                     \
+	iocshRegister( buildArgs( makeCaller(x), #x, argNames ), makeCaller(x).call<x,true> );  \
 	} while (0)
+
+#define IOCSH_FUNC_WRAP_QUIET(x,argHelps...) do {                                           \
+	const char *argNames[IOCSH_FUNC_WRAP_MAX_ARGS + 1] = { argHelps };                      \
+	using IocshDeclWrapper::buildArgs;                                                      \
+	using IocshDeclWrapper::makeCaller;                                                     \
+	iocshRegister( buildArgs( makeCaller(x), #x, argNames ), makeCaller(x).call<x,false> ); \
+	} while (0)
+
 
 #endif /* __cplusplus >= 201103L */
 
