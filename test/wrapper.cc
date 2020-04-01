@@ -12,40 +12,61 @@
 static int testFailed = 0;
 static int testPassed = 0;
 
+/*
+template <> struct IocshDeclWrapper::PrintFmts<const char *, const char *>
+{
+	static const char **get() {
+		static const char *r[] = { "foo -> %s <-", 0 };
+		return r;
+	}
+};
+*/
+
 /* run
  *  grep 'testPassed[\t]*[+][+]' wrapper.cc  | wc
  * over this file
  */
 #define NUM_TESTS 23
 
-void myString(std::string s)
+std::string myString(std::string s)
 {
 	if ( strcmp( s.c_str(), "myString" ) ) testFailed++; else testPassed++;
 	printf("my STRING %s\n", s.c_str());
+	return s;
 }
 
-void myStringr(std::string &s)
+std::string & myStringr(std::string &s)
 {
 	if ( strcmp( s.c_str(), "myStringr" ) ) testFailed++; else testPassed++;
 	printf("my STRINGr %s\n", s.c_str());
+	/* cannot just hand 's' back since it may not outlive 
+	 * this function call!
+	 */
+	return * new std::string( s );
 }
 
-void mycString(const std::string s)
+const std::string mycString(const std::string s)
 {
 	if ( strcmp( s.c_str(), "mycString" ) ) testFailed++; else testPassed++;
 	printf("my const STRING %s\n", s.c_str());
+	return s;
 }
 
-void myStringp(std::string *s)
+std::string * myStringp(std::string *s)
 {
 	if ( strcmp( s->c_str(), "myStringp" ) ) testFailed++; else testPassed++;
 	printf("my STRINGp %s\n", s ? s->c_str() : "<NULL>");
+	/* cannot just hand 's' back since it may not outlive 
+	 * this function call!
+	 */
+	return new std::string( *s );
 }
 
-void mycStringp(const std::string *s)
+const std::string * mycStringp(const std::string *s)
 {
 	if ( strcmp( s->c_str(), "mycStringp" ) ) testFailed++; else testPassed++;
 	printf("my cSTRINGp %s\n", s ? s->c_str() : "<NULL>");
+	return new std::string( *s );
 }
 
 extern "C" void myNoarg()
@@ -78,16 +99,24 @@ extern "C" double myDouble(double a)
 }
 
 
-extern "C" void myHello(char *m)
+extern "C" char * myHello(char *m)
 {
 	if ( strcmp( m, "myHello" ) ) testFailed++; else testPassed++;
-	printf("From myHello: %s\n", m);
+	printf("From myHello: %s\n", m );
+	/* cannot just hand 'm' back since it may not outlive 
+	 * this function call!
+	 */
+	return strdup( m );
 }
 
-extern "C" void mycHello(const char *m)
+extern "C" const char * mycHello(const char *m)
 {
 	if ( strcmp( m, "mycHello" ) ) testFailed++; else testPassed++;
 	printf("From mycHello: %s\n", m);
+	/* cannot just hand 'm' back since it may not outlive 
+	 * this function call!
+	 */
+	return strdup(m);
 }
 
 
@@ -264,17 +293,22 @@ void testCheck()
 
 };
 
+namespace IocshDeclWrapper {
+
 using namespace IocshDeclWrapperTest;
 
-template <> class IocshDeclWrapper::Printer<MyType, MyType(), genMyType> : public ::IocshDeclWrapper::PrinterBase<MyType> {
+template <> class Printer<MyType, MyType(), genMyType> : public PrinterBase<MyType, MyType> {
 public:
-	static void print(const MyType &r)
+	static void print(const MyType & r)
 	{
 		errlogPrintf("Printer for 'MyType'\n");
 		testPassed++;
 	}
 };
 
+}
+
+using namespace IocshDeclWrapperTest;
 
 IOCSH_FUNC_WRAP_REGISTRAR(wrapperRegister,
 	IOCSH_FUNC_WRAP( myHello    );

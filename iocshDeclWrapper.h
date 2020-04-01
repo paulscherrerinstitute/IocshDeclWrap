@@ -174,7 +174,7 @@ public:
 /*
  * Converter to map between user function arguments and iocshArg/iocshArgBuf
  */
-template <typename T, typename R> struct Convert {
+template <typename T, typename R, int USER=0> struct Convert {
 	/*
 	 * Set argument type and default name in iocshArg for type 'T'.
 	 */
@@ -198,7 +198,7 @@ iocshArg *makeArg(const char *aname = 0)
 	iocshArg *rval = new iocshArg;
 
 	rval->name = 0;
-	Convert<T,T>::setArg( rval );
+	Convert<T,T,0>::setArg( rval );
 	if ( aname ) {
 		rval->name = aname;
 	}
@@ -239,7 +239,7 @@ IOCSH_DECL_WRAPPER_IS_INT(              bool);
 #undef IOSH_DECL_WRAPPER_IS_INT
 
 /* Specialization for all integral types */
-template <typename T> struct Convert<T, typename is_int<T>::type> {
+template <typename T, int USER> struct Convert<T, typename is_int<T>::type, USER> {
 
 	typedef typename is_int<T>::type type;
 
@@ -257,11 +257,17 @@ template <typename T> struct Convert<T, typename is_int<T>::type> {
 
 template <typename T> struct is_str;
 template <> struct is_str <std::string       > { typedef       std::string   type; };
+template <> struct is_str <const std::string > { typedef const std::string   type; };
 template <> struct is_str <std::string      &> { typedef       std::string & type; };
+template <> struct is_str <const std::string&> { typedef const std::string & type; };
 
 template <typename T> struct is_strp;
 template <> struct is_strp<std::string      *> { typedef       std::string * type; };
 template <> struct is_strp<const std::string*> { typedef const std::string * type; };
+
+template <typename T> struct is_chrp;
+template <> struct is_chrp<char             *> { typedef       char        * type; };
+template <> struct is_chrp<const char       *> { typedef const char        * type; };
 
 static void setArgStr(iocshArg *a)
 {
@@ -270,7 +276,7 @@ static void setArgStr(iocshArg *a)
 }
 
 /* Specialization for strings and string reference */
-template <typename T> struct Convert<T, typename is_str<T>::type> {
+template <typename T, int USER> struct Convert<T, typename is_str<T>::type, USER> {
 
 	typedef typename is_str<T>::type type;
 
@@ -286,7 +292,7 @@ template <typename T> struct Convert<T, typename is_str<T>::type> {
 };
 
 /* Specialization for string pointer */
-template <typename T> struct Convert<T, typename is_strp<T>::type> {
+template <typename T, int USER> struct Convert<T, typename is_strp<T>::type, USER> {
 
 	typedef typename is_strp<T>::type type;
 
@@ -302,7 +308,7 @@ template <typename T> struct Convert<T, typename is_strp<T>::type> {
 };
 
 /* Specialization for C-strings */
-template <> struct Convert<const char *, const char *> {
+template <int USER> struct Convert<const char *, const char *, USER> {
 
 	static void setArg(iocshArg *a)
 	{
@@ -316,7 +322,7 @@ template <> struct Convert<const char *, const char *> {
 };
 
 /* Specialization for mutable C-strings */
-template <> struct Convert<char *, char *> {
+template <int USER> struct Convert<char *, char *, USER> {
 
 	static void setArg(iocshArg *a)
 	{
@@ -335,7 +341,7 @@ template <typename T> struct is_flt;
 template <> struct is_flt<float > { typedef float  type; static const char *name() { return "<float>" ; } };
 template <> struct is_flt<double> { typedef double type; static const char *name() { return "<double>"; } };
 
-template <typename T> struct Convert<T, typename is_flt<T>::type> {
+template <typename T, int USER> struct Convert<T, typename is_flt<T>::type, USER> {
 	typedef typename is_flt<T>::type type;
 
 	static void setArg(iocshArg *a)
@@ -363,11 +369,11 @@ template <> struct is_cplx< std::complex<double> > {
 
 template <> struct is_cplx< std::complex<long double> > {
 	typedef std::complex<long double> type;
-	static const char                *fmt() { return "%llg j %llg"; }
+	static const char                *fmt() { return "%Lg j %Lg"; }
 };
 
 /* Specialization for std::complex */
-template <typename T> struct Convert<T, typename is_cplx<T>::type> {
+template <typename T, int USER> struct Convert<T, typename is_cplx<T>::type, USER> {
 	typedef typename is_cplx<T>::type type;
 
 	static void setArg(iocshArg *a)
@@ -437,95 +443,148 @@ public:
  * For the default Printer implementation we
  * use specialized 'format strings'
  */
-template <typename R> const char **printFmts()
-{
-	return 0;
-}
 
-template <> const char **printFmts<bool>()
-{
-	static const char *r [] = { "%d", 0 };
-	return r;
-}
+template <typename T, typename R, int USER = 0> struct PrintFmts {
+	static const char **get()
+	{
+		return 0;
+	}
+};
 
-template <> const char **printFmts<char>()
-{
-	static const char *r [] = { "%c", " (0x%02hhx)", 0 };
-	return r;
-}
+/*
+ * Provide partial specializations for basic
+ * types; the user may provide a more specific
+ * specialization to override the formats...
+ */
+template <typename T, int USER> struct PrintFmts<T, bool, USER> {
+	static const char **get()
+	{
+		static const char *r [] = { "%d", 0 };
+		return r;
+	}
+};
 
-template <> const char **printFmts<short>()
-{
-	static const char *r [] = { "%hi", " (0x%04hx)", 0 };
-	return r;
-}
+template <typename T, int USER> struct PrintFmts<T, char, USER> {
+	static const char **get()
+	{
+		static const char *r [] = { "%c", " (0x%02hhx)", 0 };
+		return r;
+	}
+};
 
-template <> const char **printFmts<int>()
-{
-	static const char *r [] = { "%i", " (0x%08x)", 0 };
-	return r;
-}
+template <typename T, int USER> struct PrintFmts<T, short, USER> {
+	static const char **get()
+	{
+		static const char *r [] = { "%hi", " (0x%04hx)", 0 };
+		return r;
+	}
+};
 
-template <> const char **printFmts<long>()
-{
-	static const char *r [] = { "%li", " (0x%08lx)", 0 };
-	return r;
-}
+template <typename T, int USER> struct PrintFmts<T, int, USER> {
+	static const char **get()
+	{
+		static const char *r [] = { "%i", " (0x%08x)", 0 };
+		return r;
+	}
+};
 
-template <> const char **printFmts<long long>()
-{
-	static const char *r [] = { "%lli", " (0x%16llx)", 0 };
-	return r;
-}
+template <typename T, int USER> struct PrintFmts<T, long, USER> {
+	static const char **get()
+	{
+		static const char *r [] = { "%li", " (0x%08lx)", 0 };
+		return r;
+	}
+};
 
-template <> const char **printFmts<unsigned char>()
-{
-	static const char *r [] = { "%c", " (0x%02hhx)", 0 };
-	return r;
-}
+template <typename T, int USER> struct PrintFmts<T, long long, USER> {
+	static const char **get()
+	{
+		static const char *r [] = { "%lli", " (0x%16llx)", 0 };
+		return r;
+	}
+};
 
-template <> const char **printFmts<unsigned short>()
-{
-	static const char *r [] = { "%hu", " (0x%04hx)", 0 };
-	return r;
-}
+template <typename T, int USER> struct PrintFmts<T, unsigned char, USER> {
+	static const char **get()
+	{
+		static const char *r [] = { "%c", " (0x%02hhx)", 0 };
+		return r;
+	}
+};
 
-template <> const char **printFmts<unsigned int>()
-{
-	static const char *r [] = { "%u", " (0x%08x)", 0 };
-	return r;
-}
+template <typename T, int USER> struct PrintFmts<T, unsigned short, USER> {
+	static const char **get()
+	{
+		static const char *r [] = { "%hu", " (0x%04hx)", 0 };
+		return r;
+	}
+};
 
-template <> const char **printFmts<unsigned long>()
-{
-	static const char *r [] = { "%lu", " (0x%08lx)", 0 };
-	return r;
-}
+template <typename T, int USER> struct PrintFmts<T, unsigned int, USER> {
+	static const char **get()
+	{
+		static const char *r [] = { "%u", " (0x%08x)", 0 };
+		return r;
+	}
+};
 
-template <> const char **printFmts<unsigned long long>()
-{
-	static const char *r [] = { "%llu", " (0x%16llx)", 0 };
-	return r;
-}
+template <typename T, int USER> struct PrintFmts<T, unsigned long, USER> {
+	static const char **get()
+	{
+		static const char *r [] = { "%lu", " (0x%08lx)", 0 };
+		return r;
+	}
+};
 
+template <typename T, int USER> struct PrintFmts<T, unsigned long long, USER> {
+	static const char **get()
+	{
+		static const char *r [] = { "%llu", " (0x%16llx)", 0 };
+		return r;
+	}
+};
 
-template <> const char **printFmts<float>()
-{
-	static const char *r [] = { "%g", 0 };
-	return r;
-}
+template <typename T, int USER> struct PrintFmts<T, float, USER> {
+	static const char **get()
+	{
+		static const char *r [] = { "%g", 0 };
+		return r;
+	}
+};
 
-template <> const char **printFmts<double>()
-{
-	static const char *r [] = { "%.10lg", 0 };
-	return r;
-}
+template <typename T, int USER> struct PrintFmts<T, double, USER> {
+	static const char **get()
+	{
+		static const char *r [] = { "%.10lg", 0 };
+		return r;
+	}
+};
 
+template <typename T, int USER> struct PrintFmts<T, typename is_chrp<T>::type, USER> {
+	static const char **get()
+	{
+		static const char *r [] = { "%s", 0 };
+		return r;
+	}
+};
 
-template <typename R> class PrinterBase {
+/*
+ * This template can be overridden to handle class T.
+ * The template is expanded PrinterBase< sometype, sometype, 0 >
+ * and the extra arguments 'R' and 'USER' exist so that
+ * the user may write more specific specializations.
+ *
+ * 'R' is used to provide specializations for sub-types of
+ * 'T' (see the 'is_int/is_str/is_cplx' variants).
+ *
+ * Because we already specialize for 'R' in this file
+ * there is the additional argument 'USER' which may be
+ * used to provide a yet more specific variant.
+ */
+template <typename T, typename R, int USER = 0> class PrinterBase {
 public:
 	static void print( const R &r ) {
-		const char **fmts = printFmts<R>();
+		const char **fmts = PrintFmts<R,R>::get();
 		if ( ! fmts ) {
 			errlogPrintf("<No print format for this return type implemented>\n");
 		} else {
@@ -538,18 +597,45 @@ public:
 	}
 };
 
-template <typename R> class PrinterBase< std::complex<R> > {
+/*
+ * Specialization for complex types. Note that you can override this
+ * by implementing
+ *    template <typename T> class PrinterBase< std::complex<T>, typename is_cplx<std::complex<T> >::type, 0> {
+ *         ...
+ *    };
+ */
+template <typename T, int USER> class PrinterBase< std::complex<T>, typename is_cplx< std::complex<T> >::type, USER > {
 public:
-	static void print( const std::complex<R> &r )
+	static void print( const std::complex<T> &r )
 	{
 		errlogPrintf("%.10Lg J %.10Lg\n", (long double)r.real(), (long double)r.imag());
 	}
 };
 
 /*
+ * Specialization for string types
+ */
+template <typename T, int USER> class PrinterBase< T, typename is_str<T>::type, USER > {
+public:
+	static void print( const T & r )
+	{
+		PrinterBase< const char *, const char *, USER >::print( r.c_str() );
+	}
+};
+
+template <typename T, int USER> class PrinterBase< T, typename is_strp<T>::type, USER > {
+public:
+	static void print( const T & r )
+	{
+		PrinterBase< const char *, const char *, USER >::print( r->c_str() );
+	}
+};
+
+
+/*
  * Can be specialized for a particular user function 'sig'
  */
-template <typename R, typename SIG, SIG *sig> class Printer : public PrinterBase<R> {
+template <typename R, typename SIG, SIG *sig> class Printer : public PrinterBase<R, R> {
 };
 
 /*
