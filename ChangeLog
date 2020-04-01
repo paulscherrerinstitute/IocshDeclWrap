@@ -1,3 +1,4 @@
+1.2.0
  - support printing of function return values
 1.1.0:
  - renamed IocshFuncWrapper namespace -> IocshDeclWrapper
