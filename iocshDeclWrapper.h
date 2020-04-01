@@ -940,7 +940,7 @@ class Caller
 {
 public:
 	/* type of the user function */
-	typedef R(*type)(A0, A1, A2, A3, A4, A5, A6, A7, A8, A9);
+	typedef R(type)(A0, A1, A2, A3, A4, A5, A6, A7, A8, A9);
 
 	typedef A0 A0_T;
 	typedef A1 A1_T;
@@ -970,7 +970,7 @@ public:
 	 * This instantiates this template and the instantiation 'knows' that 'func'
 	 * is in fact 'funcWeWantToWrap'...
 	 */
-	template <type func> static void call(const iocshArgBuf *args)
+	template <type *func> static void call(const iocshArgBuf *args)
 	{
 		IocshDeclWrapper::Context ctx;
 		IOCSH_DECL_WRAPPER_DO_CALL(
@@ -993,7 +993,7 @@ template <typename R, typename A0, typename A1, typename A2, typename A3, typena
 class Caller<R, A0, A1, A2, A3, A4, A5, A6, A7, A8, void>
 {
 public:
-	typedef R(*type)(A0, A1, A2, A3, A4, A5, A6, A7, A8);
+	typedef R(type)(A0, A1, A2, A3, A4, A5, A6, A7, A8);
 	typedef A0   A0_T;
 	typedef A1   A1_T;
 	typedef A2   A2_T;
@@ -1007,7 +1007,7 @@ public:
 
 	const static int N = 9;
 
-	template <type func> static void call(const iocshArgBuf *args)
+	template <type *func> static void call(const iocshArgBuf *args)
 	{
 		IocshDeclWrapper::Context ctx;
 		IOCSH_DECL_WRAPPER_DO_CALL(
@@ -1029,7 +1029,7 @@ template <typename R, typename A0, typename A1, typename A2, typename A3, typena
 class Caller<R, A0, A1, A2, A3, A4, A5, A6, A7, void, void>
 {
 public:
-	typedef R(*type)(A0, A1, A2, A3, A4, A5, A6, A7);
+	typedef R(type)(A0, A1, A2, A3, A4, A5, A6, A7);
 	typedef A0   A0_T;
 	typedef A1   A1_T;
 	typedef A2   A2_T;
@@ -1043,7 +1043,7 @@ public:
 
 	const static int N = 8;
 
-	template <type func> static void call(const iocshArgBuf *args)
+	template <type *func> static void call(const iocshArgBuf *args)
 	{
 		IocshDeclWrapper::Context ctx;
 		IOCSH_DECL_WRAPPER_DO_CALL(
@@ -1064,7 +1064,7 @@ template <typename R, typename A0, typename A1, typename A2, typename A3, typena
 class Caller<R, A0, A1, A2, A3, A4, A5, A6, void, void, void>
 {
 public:
-	typedef R(*type)(A0, A1, A2, A3, A4, A5, A6);
+	typedef R(type)(A0, A1, A2, A3, A4, A5, A6);
 	typedef A0   A0_T;
 	typedef A1   A1_T;
 	typedef A2   A2_T;
@@ -1078,7 +1078,7 @@ public:
 
 	const static int N = 7;
 
-	template <type func> static void call(const iocshArgBuf *args)
+	template <type *func> static void call(const iocshArgBuf *args)
 	{
 		IocshDeclWrapper::Context ctx;
 		IOCSH_DECL_WRAPPER_DO_CALL(
@@ -1098,7 +1098,7 @@ template <typename R, typename A0, typename A1, typename A2, typename A3, typena
 class Caller<R, A0, A1, A2, A3, A4, A5, void, void, void, void>
 {
 public:
-	typedef R(*type)(A0, A1, A2, A3, A4, A5);
+	typedef R(type)(A0, A1, A2, A3, A4, A5);
 	typedef A0   A0_T;
 	typedef A1   A1_T;
 	typedef A2   A2_T;
@@ -1112,7 +1112,7 @@ public:
 
 	const static int N = 6;
 
-	template <type func> static void call(const iocshArgBuf *args)
+	template <type *func> static void call(const iocshArgBuf *args)
 	{
 		IocshDeclWrapper::Context ctx;
 		IOCSH_DECL_WRAPPER_DO_CALL(
@@ -1130,7 +1130,7 @@ template <typename R, typename A0, typename A1, typename A2, typename A3, typena
 class Caller<R, A0, A1, A2, A3, A4, void, void, void, void, void>
 {
 public:
-	typedef R(*type)(A0, A1, A2, A3, A4);
+	typedef R(type)(A0, A1, A2, A3, A4);
 	typedef A0   A0_T;
 	typedef A1   A1_T;
 	typedef A2   A2_T;
@@ -1144,7 +1144,7 @@ public:
 
 	const static int N = 5;
 
-	template <type func> static void call(const iocshArgBuf *args)
+	template <type *func> static void call(const iocshArgBuf *args)
 	{
 		IocshDeclWrapper::Context ctx;
 		IOCSH_DECL_WRAPPER_DO_CALL(
@@ -1161,7 +1161,7 @@ template <typename R, typename A0, typename A1, typename A2, typename A3>
 class Caller<R, A0, A1, A2, A3, void, void, void, void, void, void>
 {
 public:
-	typedef R(*type)(A0, A1, A2, A3);
+	typedef R(type)(A0, A1, A2, A3);
 	typedef A0   A0_T;
 	typedef A1   A1_T;
 	typedef A2   A2_T;
@@ -1175,7 +1175,7 @@ public:
 
 	const static int N = 4;
 
-	template <type func> static void call(const iocshArgBuf *args)
+	template <type *func> static void call(const iocshArgBuf *args)
 	{
 		IocshDeclWrapper::Context ctx;
 		IOCSH_DECL_WRAPPER_DO_CALL(
@@ -1191,7 +1191,7 @@ template <typename R, typename A0, typename A1, typename A2>
 class Caller<R, A0, A1, A2, void, void, void, void, void, void, void>
 {
 public:
-	typedef R(*type)(A0, A1, A2);
+	typedef R(type)(A0, A1, A2);
 	typedef A0   A0_T;
 	typedef A1   A1_T;
 	typedef A2   A2_T;
@@ -1205,7 +1205,7 @@ public:
 
 	const static int N = 3;
 
-	template <type func> static void call(const iocshArgBuf *args)
+	template <type *func> static void call(const iocshArgBuf *args)
 	{
 		IocshDeclWrapper::Context ctx;
 		IOCSH_DECL_WRAPPER_DO_CALL(
@@ -1220,7 +1220,7 @@ template <typename R, typename A0, typename A1>
 class Caller<R, A0, A1, void, void, void, void, void, void, void, void>
 {
 public:
-	typedef R(*type)(A0, A1);
+	typedef R(type)(A0, A1);
 	typedef A0   A0_T;
 	typedef A1   A1_T;
 	typedef void A2_T;
@@ -1234,7 +1234,7 @@ public:
 
 	const static int N = 2;
 
-	template <type func> static void call(const iocshArgBuf *args)
+	template <type *func> static void call(const iocshArgBuf *args)
 	{
 		IocshDeclWrapper::Context ctx;
 		IOCSH_DECL_WRAPPER_DO_CALL(
@@ -1249,7 +1249,7 @@ template <typename R, typename A0>
 class Caller<R, A0, void, void, void, void, void, void, void, void, void>
 {
 public:
-	typedef R(*type)(A0);
+	typedef R(type)(A0);
 	typedef A0   A0_T;
 	typedef void A1_T;
 	typedef void A2_T;
@@ -1263,7 +1263,7 @@ public:
 
 	const static int N = 1;
 
-	template <type func> static void call(const iocshArgBuf *args)
+	template <type *func> static void call(const iocshArgBuf *args)
 	{
 		IocshDeclWrapper::Context ctx;
 		IOCSH_DECL_WRAPPER_DO_CALL(
@@ -1276,7 +1276,7 @@ template <typename R>
 class Caller<R, void, void, void, void, void, void, void, void, void, void>
 {
 public:
-	typedef R(*type)(void);
+	typedef R(type)(void);
 
 	typedef void A0_T;
 	typedef void A1_T;
@@ -1291,7 +1291,7 @@ public:
 
 	const static int N = 0;
 
-	template <type func> static void call(const iocshArgBuf *args)
+	template <type *func> static void call(const iocshArgBuf *args)
 	{
 		IOCSH_DECL_WRAPPER_DO_CALL( );
 	}
