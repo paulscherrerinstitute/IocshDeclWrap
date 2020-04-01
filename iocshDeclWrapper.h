@@ -80,7 +80,7 @@ public:
 };
 
 /* 'Reference holder' for abitrary simple objects. Similar to
- * a (very dumb) smart pointer but without having to worry about 
+ * a (very dumb) smart pointer but without having to worry about
  * C++11 or boost.
  */
 template <typename T, typename I> class ContextEl : public ContextElBase {
@@ -192,7 +192,7 @@ template <typename T, typename R, int USER=0> struct Convert {
  * Allocate a new iocshArg struct and call
  * Convert::setArg() for type 'T'
  */
-template <typename T> 
+template <typename T>
 iocshArg *makeArg(const char *aname = 0)
 {
 	iocshArg *rval = new iocshArg;
@@ -417,7 +417,7 @@ template <typename T> struct Reference<T&> {
 template <typename R> class EvalResult {
 public:
 	/* Printer function */
-	typedef void (*PrinterType) (typename Reference<R>::ctype); 
+	typedef void (*PrinterType) (typename Reference<R>::ctype);
 private:
 	PrinterType pri;
 public:
@@ -452,7 +452,12 @@ public:
 
 /*
  * For the default Printer implementation we
- * use specialized 'format strings'
+ * use specialized 'format strings'.
+ * The 'get()' method returns NULL terminated array
+ * of format strings. The printer will print the
+ * result for each of the formats. This allows, e.g.,
+ * for printing an integer result in decimal as well
+ * as in hexadecimal.
  */
 
 template <typename T, typename R, int USER = 0> struct PrintFmts {
@@ -609,8 +614,10 @@ public:
 };
 
 /*
- * Specialization for complex types. Note that you can override this
- * by implementing
+ * Specialization for complex types.
+ *
+ * EXAMPLE: you can override this variant by implementing (specialized for int 0)
+ *
  *    template <typename T> class PrinterBase< std::complex<T>, typename is_cplx<std::complex<T> >::type, 0> {
  *         ...
  *    };
@@ -644,7 +651,20 @@ public:
 
 
 /*
- * Can be specialized for a particular user function 'sig'
+ * Finally, the Printer can be specialized for a particular user function 'sig'
+ *
+ * If you have a user function:
+ *
+ *    MyRet myFunction( MyArg & );
+ *
+ * Then you can specialize how the results of this function are printed:
+ *
+ *    template <> classPrinter< MyRet, MyRet(MyArg&), myFunction > {
+ *       public:
+ *          static void print( const MyRet &result ) {
+ *              <print result here>
+ *          }
+ *    }
  */
 template <typename R, typename SIG, SIG *sig> class Printer : public PrinterBase<R, R> {
 };
@@ -687,7 +707,7 @@ public:
 		def         = new iocshFuncDef;
 		def->name   = epicsStrDup( fname );
 		def->nargs  = nargs;
-        args        = new iocshArg*[def->nargs]; 
+        args        = new iocshArg*[def->nargs];
 		def->arg    = args;
 
 		for ( int i = 0; i < def->nargs; i++ ) {
@@ -714,7 +734,7 @@ public:
 		return rval;
 	}
 
-	
+
 	~FuncDef()
 	{
 		if ( def ) {
@@ -847,7 +867,7 @@ template <typename RR, RR *p> void call(const iocshArgBuf *args)
 
 namespace IocshDeclWrapper {
 
-/* 
+/*
  * See C++11 version for comments...
  */
 template <typename G>
