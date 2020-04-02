@@ -243,7 +243,7 @@ of specialization.)
 ### Printing User Function Results
 
 The return value of a user function (provided that the function does
-not return `void`) is passed to the `print` static member of the
+not return `void`) is passed to the `print` `static` member of the
 `Printer` template.
 
 Note that printing of results is optional. The templates support a
