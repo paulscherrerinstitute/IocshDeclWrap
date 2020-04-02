@@ -694,6 +694,10 @@ template <typename R, typename SIG> struct Guesser {
 	}
 };
 
+/*
+ * Special case if the user-function returns 'void'.
+ * PrinterType is then a dummy 'void *'.
+ */
 template <typename SIG> struct Guesser<void, SIG> {
 	typedef typename EvalResult<void>::PrinterType PrinterType;
 
