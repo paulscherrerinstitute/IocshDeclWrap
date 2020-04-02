@@ -79,12 +79,12 @@ plain C does not work).
 Again: it is perfectly fine to wrap C-functions; just
 the `IOCSH_FUNC_WRAP()` macro must be expanded from C++ code.
 
-## `IOCSH_FUNC_WRAP()`
+## `IOCSH_FUNC_WRAP()` and `IOCSH_FUNC_WRAP_QUIET`
 
 This is the main macro that does the heavy lifting. It
 is really easy to use:
 
-    IOCSH_FUNC_WRAP( <function_to_wrap> { , <arg_help_string> } );
+    IOCSH_FUNC_WRAP( <function_to_wrap> { ',' <arg_help_string> } );
 
 The first argument identifies the function which you want
 to wrap. The declaration of this function must be available
@@ -100,6 +100,16 @@ the user types
 in iocsh. By default, a string describing the type of the
 argument is used.
 
+If you don't want the return value of the user function to
+be printed to the console then you use
+
+    IOCSH_FUNC_WRAP_QUIET( <function_to_wrap>, { ',' <arg_help_string> } );
+
+Use this variant also if no `Printer` (see below) for the
+return type of your function is available and you want to
+suppress the respective notice which is otherwise printed
+to the console.
+
 ### C++98 Restrictions
 
 When using a C++98 compiler (no C++11 support) the user
@@ -109,6 +119,15 @@ possible to wrap a `static` function.
 For C++98 the maximal number of arguments the user function
 may have is limited to `IOCSH_FUNC_WRAP_MAX_ARGS` (currently
 10). Under C++11 there is no static maximum.
+
+## Namespace IocshDeclWrapper
+
+All the templates are defined in their own
+
+    namespace IocshDeclWrapper
+
+This is important to keep in mind if you intend to write
+your own specializations for some of the templates.
 
 ## Template Specializations
 
@@ -143,9 +162,9 @@ specialization:
       static void setArg( iocshArg *a )
       {
         a->name = "MYTYPE"; /* set default name/help for arg;
-                             * shown by iocsh help but may
+                             * shown by iocsh help; this may
                              * be overridden by IOCSH_WRAP_FUNC()
-                             * argument
+                             * arguments for individual functions.
                              */
         a->type = <iocsh type that is most appropriate>;
       }
@@ -179,7 +198,7 @@ after the user function returns.
 
 Here is the example where the user function expects a C++ `std::string *` pointer
 argument; since the `iocshArgBuf` only holds a `const char *` pointer we have to
-create a new `std::string` which must exist until the user function returns:
+create a new `std::string` which must persist until the user function returns:
 
     template <> IocshDeclWrapper::Convert< string *, string *> {
       static void setArg(iocshArg *a)
@@ -211,16 +230,30 @@ specialization in order to override a default converter.
 
 If the user wishes, for example, to provide his/her own conversion for
 integral types then the template may be specialized for the explicit
-USER value 0:
+USER value 0 [^1]:
 
     template <typename T> struct Convert<T, typename is_int<T>::type, 0> {
     }
+
+[^1]: The templates are always instantiated with `USER=0`, thus
+      a specialization for a different value would never been selected; the
+      USER argument simply provides the possibility of an additional level
+      of specialization.)
 
 ### Printing User Function Results
 
 The return value of a user function (provided that the function does
 not return `void`) is passed to the `print` static member of the
 `Printer` template.
+
+Note that printing of results is optional. The templates support a
+parameter that causes the user function's return value to be discarded.
+In order to deactivate printing of its return value register your
+function with the
+
+    IOCSH_FUNC_WRAP_QUIET()
+
+macro (see above).
 
 #### The `PrinterBase` Template
 
@@ -237,8 +270,10 @@ values and handles printing for individual types.
     };
 
 You can implement a `PrinterBase` class specialization for your own
-types or by specializing `USER` to 0 you can override an existing
-implementation of `PrinterBase`.
+types.
+
+Specializing for `USER==0` you can override an existing implementation
+of `PrinterBase`.
 
 #### The `PrintFmts` Template
 
@@ -261,7 +296,7 @@ explicit `USER=0` argument.
 
 The purpose of `Printer` is adding the possibility for providing
 a specialization for a specific user function.
-	
+
 The `Printer` template normally derives from its base class `PrinterBase`
 and simply uses the base classes' `print` function:
 
@@ -270,8 +305,8 @@ and simply uses the base classes' `print` function:
     {
     };
 
-However, you may define a specialization that is specific for a particular
-user function, e.g.:
+However, you may define a specialization that is specific to a
+particular user function, e.g.
 
     int mySpecialFunction();
 
@@ -285,7 +320,12 @@ user function, e.g.:
       }
 
     };
-    
+
+While you are not using `PrinterBase::print` in this case you
+should still derive your `Printer` class from `PrinterBase`.
+This ensures forward-compatibility if the `PrinterBase` class
+is ever enhanced with additional members.
+
 #### Printing Summary
 
 Summarizing the purpose of the multiple print-related templates:
