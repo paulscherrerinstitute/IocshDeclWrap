@@ -341,3 +341,9 @@ Summarizing the purpose of the multiple print-related templates:
       to handle the specific type.
 - If you need a special `print` method specifically for your user-
   function then you should specialize `Printer` for your function.
+
+## Examples
+
+Examples can be found in the test source file
+
+    test/wrapper.cc
