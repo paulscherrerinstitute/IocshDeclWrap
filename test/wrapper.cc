@@ -9,24 +9,31 @@
 #include <string.h>
 #include <complex>
 
+/* run
+ *  grep 'testPassed[\t]*[+][+]' wrapper.cc  | wc
+ * over this file
+ */
+#define NUM_TESTS 27
+
 static int testFailed = 0;
 static int testPassed = 0;
 
 /*
-template <> struct IocshDeclWrapper::PrintFmts<const char *, const char *>
+ * Example for how the default print format for const char * may be
+ * overridden by specializing for USER=0:
+ */
+
+#ifdef OVERRIDE_CONST_CHAR_PRINT_FMT
+
+template <> struct IocshDeclWrapper::PrintFmts<const char *, const char *, 0>
 {
 	static const char **get() {
 		static const char *r[] = { "foo -> %s <-", 0 };
 		return r;
 	}
 };
-*/
 
-/* run
- *  grep 'testPassed[\t]*[+][+]' wrapper.cc  | wc
- * over this file
- */
-#define NUM_TESTS 27
+#endif
 
 std::string myString(std::string s)
 {
@@ -293,6 +300,12 @@ std::complex<double> myComplex(std::complex<double> val)
 }
 
 
+/*
+ * The tests must be executed as scripted in 'test.cmd' - otherwise
+ * the counts are inaccurate.
+ *
+ */
+
 void testCheck()
 {
 	if ( 0 == testFailed && NUM_TESTS == testPassed ) {
@@ -315,6 +328,11 @@ namespace IocshDeclWrapper {
 
 using namespace IocshDeclWrapperTest;
 
+/*
+ * Provide a converter for 'MyType' function
+ * arguments.
+ */
+
 template <> class Convert<MyType &, MyType &> {
 public:
 	static void setArg( iocshArg *a )
@@ -330,6 +348,9 @@ public:
 	}
 };
 
+/*
+ * Provide PrinterBase for MyType function results.
+ */
 template <> class PrinterBase<MyType, MyType> {
 public:
 	static void print(const MyType & r)
@@ -339,6 +360,10 @@ public:
 	}
 };
 
+/*
+ * Provide a special `Printer` just for the result of the
+ * `testNonPrinting()` function.
+ */
 template <> class Printer<MyType, MyType(), testNonPrinting> : public PrinterBase<MyType, MyType> {
 public:
 	static void print(const MyType & r)
@@ -350,6 +375,11 @@ public:
 	}
 };
 
+/*
+ * Provide a special `Printer` just for the result of the
+ * `myFuncInt()` function.
+ */
+
 template <> class Printer<int, int(int), myFuncInt> : public PrinterBase<int,int> {
 public:
 	static void print(const int &v)
@@ -358,34 +388,32 @@ public:
 		errlogPrintf("Printer for myFuncInt (v==321) ? %s\n", (321==v) ? "TRUE" : "FALSE" );
 	}
 };
-
-/* More specialized than:
- *  template <typename T> class PrinterBase< T, typename is_cplx< T >::type > { }
+ 
+/*
+ * A `PrinterBase` for std::complex, overriding the default one.
  *
- * Alternatively we could also use
-template <typename T> class PrinterBase< T, typename is_cplx< T >::type, 0 > { }
+ * Note that the template here
+ *
+ *   template <typename T> class
+ *     PrinterBase< std::complex<T>,
+ *                  typename is_cplx< std::complex<T> >::type >
+ *
+ * is more specialized than the default:
+ *
+ *   template <typename T> class
+ *     PrinterBase< T,
+ *                  typename is_cplx< T >::type >
+ *
+ * Alternatively we could also specialize USER=0:
+ *
+ *   template <typename T> class
+ *     PrinterBase< T,
+ *                  typename is_cplx< T >::type,
+ *                  0 >
  */
-#undef  USE_INTEGER_SPECIFIER
-#ifdef  USE_INTEGER_SPECIFIER
-template <typename T> class PrinterBase< T, typename is_cplx< T >::type, 0 >
-{
-public:
-	static void print(const T &r)
-	{
-		const char **fmts = PrintFmts<typename T::value_type>::get();
-		if ( ! fmts) {
-			testFailed++;
-		} else {
-			errlogPrintf("My Complex Printer ");
-			errlogPrintf( fmts[0], r.real());
-			errlogPrintf(" J ");
-			errlogPrintf( fmts[0], r.imag());
-			errlogPrintf("\n");
-			testPassed++;
-		}
-	}
-};
-#else
+
+#undef   USE_INTEGER_SPECIFIER
+#ifndef  USE_INTEGER_SPECIFIER
 template <typename T> class PrinterBase< std::complex<T>, typename is_cplx< std::complex<T> >::type >
 {
 public:
@@ -404,8 +432,27 @@ public:
 		}
 	}
 };
-#endif
+#else
+template <typename T> class PrinterBase< T, typename is_cplx< T >::type, 0 >
+{
+public:
+	static void print(const T &r)
+	{
+		const char **fmts = PrintFmts<typename T::value_type>::get();
+		if ( ! fmts) {
+			testFailed++;
+		} else {
+			errlogPrintf("My Complex Printer ");
+			errlogPrintf( fmts[0], r.real());
+			errlogPrintf(" J ");
+			errlogPrintf( fmts[0], r.imag());
+			errlogPrintf("\n");
+			testPassed++;
+		}
+	}
+};
 
+#endif
 
 }
 
