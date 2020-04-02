@@ -187,7 +187,7 @@ which is caught and results in an error message being printed to
 the console. The user function is not executed if such an error
 is thrown.
 
-#### `Convert::getArg Context`
+#### Preserving Converted Values in `Convert::getArg Context`
 
 In more complex cases it is necessary to create an intermediate object
 during the conversion process. Such an object may need to be passed
