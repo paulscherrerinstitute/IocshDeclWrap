@@ -22,7 +22,11 @@ $(INSTALLRULE) pri
   endif
 endif
 
-${DEPFILE}: hack.d
+ifneq ($(REAL_INSTALL),YES)
+HACK_D=hack.d
+endif
+
+${DEPFILE}: $(HACK_D)
 
 # Avoid installing to main module directory
 hack.d:
