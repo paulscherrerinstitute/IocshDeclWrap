@@ -2,14 +2,14 @@
 
 Till Straumann, 2020/3
 
-*IocshDeclWraper* is hosted on
+*IocshDeclWrapper* is hosted on
 [github](https://github.com/paulscherrerinstitute/IocshDeclWrap.git)
 
 ## Introduction
 
 This module provides a C++ header file which automates the
 generation of boiler-plate code that is necessary for
-interfacing a user function to the EPICS iocsh.
+interfacing a user function to the EPICS `iocsh`.
 
 Wrapping a user function requires the following steps:
 
@@ -22,7 +22,7 @@ Wrapping a user function requires the following steps:
    arguments from a `iocshArgBuf*` array, passes
    them to the user function and prints its result.
 6. register the wrapper function and `iocshFuncDef`
-   with iocsh. This is often done via a 'registrar'
+   with `iocsh`. This is often done via a 'registrar'
    function that must be defined and declared in a
    'dbd' file.
 
@@ -32,7 +32,7 @@ and optionally (6).
 ## Example
 
 Assume you want to access a user function (e.g.,
-written in 'C' ) from iocsh. The function
+written in 'C' ) from `iocsh`. The function
 `myFunction` shall be declared in a header file:
 
     myHeader.h:
@@ -59,14 +59,14 @@ And in a 'dbd' file you add:
 ## `IOCSH_FUNC_WRAP_REGISTRAR()`
 
 The `IOCSH_FUNC_WRAP_REGISTRAR` macro is a convenience macro which
-defines and 'epicsExports' a registrar function:
+defines and `epicsExports` a registrar function:
 
     IOCSH_FUNC_WRAP_REGISTRAR(
        <registrar_name>,
        <any number of IOCSH_FUNC_WRAP() statements>
     )
 
-The name of the registrar must also be declared in a 'dbd'
+The name of the registrar must also be declared in a `dbd`
 file.
 
 Note that multiple `IOCSH_FUNC_WRAP()` statements may be
@@ -79,7 +79,7 @@ plain C does not work).
 Again: it is perfectly fine to wrap C-functions; just
 the `IOCSH_FUNC_WRAP()` macro must be expanded from C++ code.
 
-## `IOCSH_FUNC_WRAP()` and `IOCSH_FUNC_WRAP_QUIET`
+## `IOCSH_FUNC_WRAP()` and `IOCSH_FUNC_WRAP_QUIET()`
 
 This is the main macro that does the heavy lifting. It
 is really easy to use:
@@ -97,7 +97,7 @@ the user types
 
     help <function_to_wrap>
 
-in iocsh. By default, a string describing the type of the
+in `iocsh`. By default, a string describing the type of the
 argument is used.
 
 If you don't want the return value of the user function to
@@ -180,7 +180,7 @@ specialization:
 #### Handling Conversion Errors
 
 In some cases `getArg` cannot convert a value. E.g., when converting
-from a string argument and the string is NULL or ill-formatted.
+from a string argument and the string is `NULL` or ill-formatted.
 
 In this case `getArg` may throw a `IocshDeclWrapper::ConversionError`
 which is caught and results in an error message being printed to
@@ -230,15 +230,15 @@ specialization in order to override a default converter.
 
 If the user wishes, for example, to provide his/her own conversion for
 integral types then the template may be specialized for the explicit
-USER value 0 [^1]:
+USER value 0:
 
     template <typename T> struct Convert<T, typename is_int<T>::type, 0> {
     }
 
-[^1]: The templates are always instantiated with `USER=0`, thus
-      a specialization for a different value would never been selected; the
-      USER argument simply provides the possibility of an additional level
-      of specialization.)
+Note: The templates are always instantiated with USER=0`, thus
+a specialization for a different value would never been selected; the
+USER argument simply provides the possibility of an additional level
+of specialization.)
 
 ### Printing User Function Results
 
@@ -272,7 +272,7 @@ values and handles printing for individual types.
 You can implement a `PrinterBase` class specialization for your own
 types.
 
-Specializing for `USER==0` you can override an existing implementation
+Specializing for `USER=0` you can override an existing implementation
 of `PrinterBase`.
 
 #### The `PrintFmts` Template
@@ -283,7 +283,7 @@ which can be printed by `errlogPrintf` using a suitable format.
 The purpose of `template <typename T> struct PrintFmts` template is
 supplying a suitable `errlogPrintf` format for type `T`.
 
-The `get()` member returns a NULL terminated array of formats and
+The `get()` member returns a `NULL` terminated array of formats and
 `PrinterBase` prints the function result for each one of these formats.
 This can be used, e.g., to print decimal as well as hexadecimal
 versions of a result.
