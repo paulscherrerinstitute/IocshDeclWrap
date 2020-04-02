@@ -10,7 +10,7 @@
 #include <complex>
 
 /* run
- *  grep 'testPassed[\t]*[+][+]' wrapper.cc  | wc
+ *  dc -e "`grep 'testPassed[\t]*[+][+]' wrapper.cc  | wc -l` `grep 'testPassed[\t]*[-][-]' wrapper.cc  | wc -l` - p"
  * over this file
  */
 #define NUM_TESTS 27
@@ -388,7 +388,7 @@ public:
 		errlogPrintf("Printer for myFuncInt (v==321) ? %s\n", (321==v) ? "TRUE" : "FALSE" );
 	}
 };
- 
+
 /*
  * A `PrinterBase` for std::complex, overriding the default one.
  *

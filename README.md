@@ -310,7 +310,7 @@ particular user function, e.g.
 
     int mySpecialFunction();
 
-    template <> class Printer<int, int(), mySpecialFunction> : 
+    template <> class Printer<int, int(), mySpecialFunction> :
     : public PrinterBase<int, int> {
       public:
 
