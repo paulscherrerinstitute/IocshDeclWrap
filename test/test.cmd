@@ -1,3 +1,6 @@
+var testPassed 0
+var testFailed 0
+
 help c10
 help c9
 help c8
