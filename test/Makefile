@@ -24,6 +24,8 @@ endif
 
 ifneq ($(REAL_INSTALL),YES)
 HACK_D=hack.d
+else
+HACK_D=rmhack
 endif
 
 ${DEPFILE}: $(HACK_D)
@@ -31,6 +33,11 @@ ${DEPFILE}: $(HACK_D)
 # Avoid installing to main module directory
 hack.d:
 	echo MODULE_LOCATION=$(dir $(USERMAKEFILE)) > $@
+
+rmhack:
+	$(RM) hack.d
+
+.PHONY: rmhack
 
 # Note: iocsh always terminates with a SIGTERM to itself;
 #       therefore the test seems to fail even if it passes :-(
