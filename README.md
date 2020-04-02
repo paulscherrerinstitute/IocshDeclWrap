@@ -120,7 +120,7 @@ For C++98 the maximal number of arguments the user function
 may have is limited to `IOCSH_FUNC_WRAP_MAX_ARGS` (currently
 10). Under C++11 there is no static maximum.
 
-## Namespace IocshDeclWrapper
+## Namespace `IocshDeclWrapper`
 
 All the templates are defined in their own
 
