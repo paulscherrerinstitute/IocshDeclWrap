@@ -103,6 +103,10 @@ IOCSH_DECL_WRAPPER_IS_INT(              bool);
 
 #undef IOSH_DECL_WRAPPER_IS_INT
 
+template <typename T> struct is_flt;
+template <> struct is_flt<float > { typedef float  type; static const char *name() { return "float" ; } };
+template <> struct is_flt<double> { typedef double type; static const char *name() { return "double"; } };
+
 
 template <typename T> struct is_str;
 template <> struct is_str <std::string       > { typedef       std::string   type; };
@@ -176,6 +180,85 @@ template <typename T> struct textract<const T*> { typedef T element_type; };
 template <typename T> struct textract<const T&> { typedef T element_type; };
 template <typename T> struct textract<      T*> { typedef T element_type; };
 template <typename T> struct textract<      T&> { typedef T element_type; };
+
+/*
+ * Elementary scalar types and pointers to them
+ */
+template <typename T, typename U = T> struct is_scal;
+template <typename T, typename R = T> struct is_scalp;
+template <typename T, typename R = T> struct is_scalr;
+
+/*
+ * Connect any 'is_int<>' to integer iocsh arg
+ */
+template <typename T> struct is_scal< T, typename is_int<T>::type > : public is_int<T> {
+
+	typedef int iocsh_c_type;
+
+	static iocsh_c_type iocshVal(const iocshArgBuf *a)
+	{
+		return a->ival;
+	}
+
+	static void setArg(iocshArg *a)
+	{
+		a->name = is_int<T>::name();
+		a->type = iocshArgInt;
+	}
+};
+
+/*
+ * Connect any 'is_flt<>' to double iocsh arg
+ */
+template <typename T> struct is_scal< T, typename is_flt<T>::type > : public is_flt<T> {
+
+	typedef double iocsh_c_type;
+
+	static iocsh_c_type iocshVal(const iocshArgBuf *a)
+	{
+		return a->dval;
+	}
+
+	static void setArg(iocshArg *a)
+	{
+		a->name = is_flt<T>::name();
+		a->type = iocshArgDouble;
+	}
+};
+
+/*
+ * Pointer to a scalar
+ */
+template <typename T> struct is_scalp<T*, typename is_scal<T>::type *> {
+	typedef typename is_scal<T>::type  btype;
+	typedef typename is_scal<T>::type *ptype;
+	typedef is_scal<T>                 stype;
+};
+
+
+template <typename T> struct is_scalp<const T*, const typename is_scal<T>::type *> {
+	typedef typename is_scal<T>::type  const  btype;
+	typedef typename is_scal<T>::type  const *ptype;
+	typedef is_scal<T>                        stype;
+};
+
+/*
+ * Reference to a scalar
+ */
+template <typename T> struct is_scalr<T&, typename is_scal<T>::type &> {
+	typedef typename is_scal<T>::type  btype;
+	typedef typename is_scal<T>::type &rtype;
+	typedef is_scal<T>                 stype;
+};
+
+
+template <typename T> struct is_scalr<const T&, const typename is_scal<T>::type &> {
+	typedef typename is_scal<T>::type  const  btype;
+	typedef typename is_scal<T>::type  const &rtype;
+	typedef is_scal<T>                        stype;
+};
+
+
 
 /* Work-around for C++89
  *  The idiom
@@ -327,7 +410,7 @@ template <typename T, int USER> struct PrintFmts<T, double, USER> {
 template <typename T, int USER> struct PrintFmts<T, typename is_chrp<T>::type, USER> {
 	static const char **get()
 	{
-		static const char *r [] = { "%s", 0 };
+		static const char *r [] = { "%p ", "%s", 0 };
 		return r;
 	}
 };
@@ -375,7 +458,16 @@ public:
 template<int USER> class PrinterBase<const char *, const char *, USER> {
 public:
 	static void print( typename Reference<const char*>::const_type r ) {
-		errlogPrintf("%s\n", r);
+		const char **fmts = PrintFmts<const char *, const char *>::get();
+		if ( ! fmts ) {
+			errlogPrintf("<No print format for this return type implemented>\n");
+		} else {
+			while ( *fmts ) {
+				errlogPrintf( *fmts, r );
+				fmts++;
+			}
+			errlogPrintf("\n");
+		}
 	}
 };
 
@@ -411,7 +503,7 @@ template <typename T, int USER> class PrinterBase< T, typename is_strp<T>::type,
 public:
 	static void print( typename Reference<T>::const_type r )
 	{
-		PrinterBase< const char *, const char *, USER >::print( r->c_str() );
+		PrinterBase< const char *, const char *, USER >::print( r ? r->c_str() : 0 );
 	}
 };
 
@@ -565,7 +657,7 @@ public:
 	 * the Context.
 	 * RETURNS: pointer to the new object.
 	 */
-	template <typename T, typename I, bool PRINT=false> T * make(I i, int recordIdx = -1)
+	template <typename T, typename I> T * make(I i, int recordIdx = -1)
 	{
 		ContextEl<T,I> *el = new ContextEl<T,I>( i );
 		if ( recordIdx >= 0 && (unsigned)recordIdx < mutableArgIdx_.size() ) {
@@ -592,8 +684,7 @@ public:
 /*
  * Converter to map between user function arguments and iocshArg/iocshArgBuf
  */
-template <typename T, typename R = T, int USER=0> struct Convert;
-#if 0
+template <typename T, typename R = T, int USER=0> struct Convert
 {
 	/*
 	 * Set argument type and default name in iocshArg for type 'T'.
@@ -607,7 +698,6 @@ template <typename T, typename R = T, int USER=0> struct Convert;
 	 */
 	static R    getArg(const iocshArgBuf *, Context *, int argNo);
 };
-#endif
 
 /*
  * Allocate a new iocshArg struct and call
@@ -748,10 +838,6 @@ template <int USER> struct Convert<char *, char *, USER> {
 };
 
 /* Specialization for floats */
-template <typename T> struct is_flt;
-template <> struct is_flt<float > { typedef float  type; static const char *name() { return "float" ; } };
-template <> struct is_flt<double> { typedef double type; static const char *name() { return "double"; } };
-
 template <typename T, int USER> struct Convert<T, typename is_flt<T>::type, USER> {
 	typedef typename is_flt<T>::type type;
 
@@ -770,6 +856,47 @@ template <typename T, int USER> struct Convert<T, typename is_flt<T>::type, USER
 		return (type) a->dval;
 	}
 };
+
+/*
+ * Specialization to pointers to ints and doubles
+ */
+template <typename T, int USER> struct Convert<T*, typename is_scalp<T*>::ptype, USER> {
+
+	typedef is_scalp<T*> scalp;
+
+	static void setArg(iocshArg *a)
+	{
+		scalp::stype::setArg( a );
+	}
+
+	static T * getArg(const iocshArgBuf *a, Context *ctx, int argNo)
+	{
+	T * elp = ctx->make<T, typename scalp::stype::iocsh_c_type>( scalp::stype::iocshVal( a ), argNo );
+		
+		return elp;
+	}
+};
+
+/*
+ * Specialization to references to ints and doubles
+ */
+template <typename T, int USER> struct Convert<T&, typename is_scalr<T&>::rtype, USER> {
+
+	typedef is_scalr<T&> scalr;
+
+	static void setArg(iocshArg *a)
+	{
+		scalr::stype::setArg( a );
+	}
+
+	static T & getArg(const iocshArgBuf *a, Context *ctx, int argNo)
+	{
+	T * elp = ctx->make<T, typename scalr::stype::iocsh_c_type>( scalr::stype::iocshVal( a ), argNo );
+		
+		return *elp;
+	}
+};
+
 
 /* Specialization for std::complex */
 template <typename T, int USER> struct Convert<T, typename is_cplx<T>::type, USER> {
@@ -1243,7 +1370,7 @@ public:
 			IocshDeclWrapper::Convert<A5>::getArg( &args[5], &ctx, 5 ),
 			IocshDeclWrapper::Convert<A6>::getArg( &args[6], &ctx, 6 ),
 			IocshDeclWrapper::Convert<A7>::getArg( &args[7], &ctx, 7 ),
-			IocshDeclWrapper::Convert<A8>::getArg( &args[8], &ctx, 8 ),
+			IocshDeclWrapper::Convert<A8>::getArg( &args[8], &ctx, 8 )
 		);
 	}
 };
@@ -1278,7 +1405,7 @@ public:
 			IocshDeclWrapper::Convert<A4>::getArg( &args[4], &ctx, 4 ),
 			IocshDeclWrapper::Convert<A5>::getArg( &args[5], &ctx, 5 ),
 			IocshDeclWrapper::Convert<A6>::getArg( &args[6], &ctx, 6 ),
-			IocshDeclWrapper::Convert<A7>::getArg( &args[7], &ctx, 7 ),
+			IocshDeclWrapper::Convert<A7>::getArg( &args[7], &ctx, 7 )
 		);
 	}
 };
@@ -1312,7 +1439,7 @@ public:
 			IocshDeclWrapper::Convert<A3>::getArg( &args[3], &ctx, 3 ),
 			IocshDeclWrapper::Convert<A4>::getArg( &args[4], &ctx, 4 ),
 			IocshDeclWrapper::Convert<A5>::getArg( &args[5], &ctx, 5 ),
-			IocshDeclWrapper::Convert<A6>::getArg( &args[6], &ctx, 6 ),
+			IocshDeclWrapper::Convert<A6>::getArg( &args[6], &ctx, 6 )
 		);
 	}
 };
@@ -1345,7 +1472,7 @@ public:
 			IocshDeclWrapper::Convert<A2>::getArg( &args[2], &ctx, 2 ),
 			IocshDeclWrapper::Convert<A3>::getArg( &args[3], &ctx, 3 ),
 			IocshDeclWrapper::Convert<A4>::getArg( &args[4], &ctx, 4 ),
-			IocshDeclWrapper::Convert<A5>::getArg( &args[5], &ctx, 5 ),
+			IocshDeclWrapper::Convert<A5>::getArg( &args[5], &ctx, 5 )
 		);
 	}
 };
@@ -1376,7 +1503,7 @@ public:
 			IocshDeclWrapper::Convert<A1>::getArg( &args[1], &ctx, 1 ),
 			IocshDeclWrapper::Convert<A2>::getArg( &args[2], &ctx, 2 ),
 			IocshDeclWrapper::Convert<A3>::getArg( &args[3], &ctx, 3 ),
-			IocshDeclWrapper::Convert<A4>::getArg( &args[4], &ctx, 4 ),
+			IocshDeclWrapper::Convert<A4>::getArg( &args[4], &ctx, 4 )
 		);
 	}
 };
@@ -1406,7 +1533,7 @@ public:
 			IocshDeclWrapper::Convert<A0>::getArg( &args[0], &ctx, 0 ),
 			IocshDeclWrapper::Convert<A1>::getArg( &args[1], &ctx, 1 ),
 			IocshDeclWrapper::Convert<A2>::getArg( &args[2], &ctx, 2 ),
-			IocshDeclWrapper::Convert<A3>::getArg( &args[3], &ctx, 3 ),
+			IocshDeclWrapper::Convert<A3>::getArg( &args[3], &ctx, 3 )
 		);
 	}
 };
@@ -1435,7 +1562,7 @@ public:
 		IOCSH_DECL_WRAPPER_DO_CALL(
 			IocshDeclWrapper::Convert<A0>::getArg( &args[0], &ctx, 0 ),
 			IocshDeclWrapper::Convert<A1>::getArg( &args[1], &ctx, 1 ),
-			IocshDeclWrapper::Convert<A2>::getArg( &args[2], &ctx, 2 ),
+			IocshDeclWrapper::Convert<A2>::getArg( &args[2], &ctx, 2 )
 		);
 	}
 };
@@ -1463,7 +1590,7 @@ public:
 		IocshDeclWrapper::Context ctx( args, N );
 		IOCSH_DECL_WRAPPER_DO_CALL(
 			IocshDeclWrapper::Convert<A0>::getArg( &args[0], &ctx, 0 ),
-			IocshDeclWrapper::Convert<A1>::getArg( &args[1], &ctx, 1 ),
+			IocshDeclWrapper::Convert<A1>::getArg( &args[1], &ctx, 1 )
 		);
 	}
 };
@@ -1491,7 +1618,7 @@ public:
 	{
 		IocshDeclWrapper::Context ctx( args, N );
 		IOCSH_DECL_WRAPPER_DO_CALL(
-			IocshDeclWrapper::Convert<A0>::getArg( &args[0], &ctx, 0 ),
+			IocshDeclWrapper::Convert<A0>::getArg( &args[0], &ctx, 0 )
 		);
 	}
 };

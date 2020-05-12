@@ -170,7 +170,8 @@ specialization:
       }
 
       MYTYPE getArg( const iocshArgBuf         *arg,
-                     IocshDeclWrapper::Context *ctx )
+                     IocshDeclWrapper::Context *ctx,
+                     int                        argNo)
       {
          /* extract function argument from *arg, convert to MYTYPE and return */
          return convert_to_MYTYPE( arg );
@@ -208,10 +209,17 @@ create a new `std::string` which must persist until the user function returns:
       }
 
       static string * getArg( const iocshArgBuf         *arg,
-                              IocshDeclWrapper::Context *ctx )
+                              IocshDeclWrapper::Context *ctx,
+                              int                        argNo )
       {
-         /* 'make' creates a new string and attaches it to the context */
-         return ctx->make<string, const char*>( arg->sval );
+         /*
+          * 'make' creates a new string and attaches it to the context
+          * 'argNo' tells us which argument we are converting.
+          *  This can is used when printing arguments that were
+          *  possibly modified by the user function (pointer/reference
+          *  arguments to non-const objects).
+          */
+         return ctx->make<string, const char*>( arg->sval, argNo );
       }
     };
 
@@ -239,6 +247,17 @@ Note: The templates are always instantiated with USER=0`, thus
 a specialization for a different value would never been selected; the
 USER argument simply provides the possibility of an additional level
 of specialization.)
+
+#### Mutable Arguments
+
+Non-`const` arguments that are passed as pointers or references to
+the user function can potentially be modified by the function.
+
+Such arguments should always be created in the `Context` and initialized
+from the values passed in by the user.
+
+The wrapper prints the values of mutable arguments after the
+user function returns.
 
 ### Printing User Function Results
 

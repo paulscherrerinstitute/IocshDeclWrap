@@ -13,7 +13,7 @@
  *  dc -e "`grep 'testPassed[\t]*[+][+]' wrapper.cc  | wc -l` `grep 'testPassed[\t]*[-][-]' wrapper.cc  | wc -l` - p"
  * over this file
  */
-#define NUM_TESTS 27
+#define NUM_TESTS 37
 
 static int testFailed = 0;
 static int testPassed = 0;
@@ -108,12 +108,12 @@ extern "C" double myDouble(double a)
 
 extern "C" char * myHello(char *m)
 {
-	if ( strcmp( m, "myHello" ) ) testFailed++; else testPassed++;
+	if ( !m || strcmp( m, "myHello" ) ) testFailed++; else testPassed++;
 	printf("From myHello: %s\n", m );
 	/* cannot just hand 'm' back since it may not outlive
 	 * this function call!
 	 */
-	return strdup( m );
+	return m ? strdup( m ) : 0;
 }
 
 extern "C" const char * mycHello(const char *m)
@@ -266,6 +266,105 @@ int c10(int a0, int a1, int a2, int a3, int a4, int a5, int a6, int a7, int a8, 
 	}
 	return printf("A10 %i %i %i %i %i %i %i %i %i %i\n", a0, a1, a2, a3, a4, a5, a6, a7, a8, a9);
 }
+
+short chp(const short *sp)
+{
+	if ( 44 == *sp )
+		testPassed++;
+	else
+		testFailed++;
+	return *sp;
+}
+
+short hp(short *sp)
+{
+	if ( 45 == *sp )
+		testPassed++;
+	else
+		testFailed++;
+	(*sp)++;
+	return *sp;
+}
+
+const short &chr(const short &sp)
+{
+	if ( 84 == sp )
+		testPassed++;
+	else
+		testFailed++;
+	return sp;
+}
+
+short hr(short &sp)
+{
+	if ( 85 == sp )
+		testPassed++;
+	else
+		testFailed++;
+	sp++;
+	return sp;
+}
+
+
+float cfp(const float *sp)
+{
+	if ( (float)44.55 == *sp )
+		testPassed++;
+	else
+		testFailed++;
+	return *sp;
+}
+
+float fp(float *sp)
+{
+	if ( (float)45.66 == *sp )
+		testPassed++;
+	else
+		testFailed++;
+	(*sp) += 1.0;
+	return *sp;
+}
+
+const std::string &csr(const std::string &sr)
+{
+	if ( 0 == strcmp( sr.c_str(), "csr_foo" ) )
+		testPassed++;
+	else
+		testFailed++;
+	return sr;
+}
+
+std::string &sr(std::string &sr)
+{
+	if ( 0 == strcmp( sr.c_str(), "sr_foo" ) )
+		testPassed++;
+	else
+		testFailed++;
+	sr = std::string("haggaloo");
+	return sr;
+}
+
+const std::string *csp(const std::string *sr)
+{
+	if ( sr && 0 == strcmp( sr->c_str(), "csp_foo" ) )
+		testPassed++;
+	else
+		testFailed++;
+	return sr;
+}
+
+std::string *sp(std::string *sr)
+{
+	if ( sr && 0 == strcmp( sr->c_str(), "sp_foo" ) )
+		testPassed++;
+	else
+		testFailed++;
+	if ( sr ) {
+		*sr = std::string("haggaloo");
+	}
+	return sr;
+}
+
 
 class MyType {
 	int i;
@@ -489,6 +588,16 @@ IOCSH_FUNC_WRAP_REGISTRAR(wrapperRegister,
 	IOCSH_FUNC_WRAP( myComplex  );
 	IOCSH_FUNC_WRAP( genMyType  );
 	IOCSH_FUNC_WRAP_QUIET( testNonPrinting  );
+	IOCSH_FUNC_WRAP( sp         );
+	IOCSH_FUNC_WRAP( csp        );
+	IOCSH_FUNC_WRAP( sr         );
+	IOCSH_FUNC_WRAP( csr        );
+	IOCSH_FUNC_WRAP( hr         );
+	IOCSH_FUNC_WRAP( chr        );
+	IOCSH_FUNC_WRAP( hp         );
+	IOCSH_FUNC_WRAP( chp        );
+	IOCSH_FUNC_WRAP( fp         );
+	IOCSH_FUNC_WRAP( cfp        );
 )
 
 epicsExportAddress(int, testPassed);

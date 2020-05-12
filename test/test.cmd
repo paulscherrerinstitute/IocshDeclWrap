@@ -47,5 +47,16 @@ genMyType( 44 )
 
 testNonPrinting
 
+chp(44)
+hp(45)
+chr(84)
+hr(85)
+cfp(44.55)
+fp(45.66)
+sr("sr_foo")
+csr("csr_foo")
+sp("sp_foo")
+csp("csp_foo")
+
 testCheck()
 exit
