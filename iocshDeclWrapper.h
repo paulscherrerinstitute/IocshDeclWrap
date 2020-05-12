@@ -184,14 +184,14 @@ template <typename T> struct textract<      T&> { typedef T element_type; };
 /*
  * Elementary scalar types and pointers to them
  */
-template <typename T, typename U = T> struct is_scal;
-template <typename T, typename R = T> struct is_scalp;
-template <typename T, typename R = T> struct is_scalr;
+template <typename T, typename U = T, int USER = 0> struct is_scal;
+template <typename T, typename R = T, int USER = 0> struct is_scalp;
+template <typename T, typename R = T, int USER = 0> struct is_scalr;
 
 /*
  * Connect any 'is_int<>' to integer iocsh arg
  */
-template <typename T> struct is_scal< T, typename is_int<T>::type > : public is_int<T> {
+template <typename T, int USER> struct is_scal< T, typename is_int<T>::type, USER > : public is_int<T> {
 
 	typedef int iocsh_c_type;
 
@@ -210,7 +210,7 @@ template <typename T> struct is_scal< T, typename is_int<T>::type > : public is_
 /*
  * Connect any 'is_flt<>' to double iocsh arg
  */
-template <typename T> struct is_scal< T, typename is_flt<T>::type > : public is_flt<T> {
+template <typename T, int USER> struct is_scal< T, typename is_flt<T>::type, USER > : public is_flt<T> {
 
 	typedef double iocsh_c_type;
 
@@ -229,14 +229,14 @@ template <typename T> struct is_scal< T, typename is_flt<T>::type > : public is_
 /*
  * Pointer to a scalar
  */
-template <typename T> struct is_scalp<T*, typename is_scal<T>::type *> {
+template <typename T, int USER> struct is_scalp<T*, typename is_scal<T>::type *, USER> {
 	typedef typename is_scal<T>::type  btype;
 	typedef typename is_scal<T>::type *ptype;
 	typedef is_scal<T>                 stype;
 };
 
 
-template <typename T> struct is_scalp<const T*, const typename is_scal<T>::type *> {
+template <typename T, int USER> struct is_scalp<const T*, const typename is_scal<T>::type *, USER> {
 	typedef typename is_scal<T>::type  const  btype;
 	typedef typename is_scal<T>::type  const *ptype;
 	typedef is_scal<T>                        stype;
@@ -245,14 +245,14 @@ template <typename T> struct is_scalp<const T*, const typename is_scal<T>::type 
 /*
  * Reference to a scalar
  */
-template <typename T> struct is_scalr<T&, typename is_scal<T>::type &> {
+template <typename T, int USER> struct is_scalr<T&, typename is_scal<T>::type &, USER> {
 	typedef typename is_scal<T>::type  btype;
 	typedef typename is_scal<T>::type &rtype;
 	typedef is_scal<T>                 stype;
 };
 
 
-template <typename T> struct is_scalr<const T&, const typename is_scal<T>::type &> {
+template <typename T, int USER> struct is_scalr<const T&, const typename is_scal<T>::type &, USER> {
 	typedef typename is_scal<T>::type  const  btype;
 	typedef typename is_scal<T>::type  const &rtype;
 	typedef is_scal<T>                        stype;
@@ -507,26 +507,6 @@ public:
 	}
 };
 
-
-/*
- * Finally, the Printer can be specialized for a particular user function 'sig'
- *
- * If you have a user function:
- *
- *    MyRet myFunction( MyArg & );
- *
- * Then you can specialize how the results of this function are printed:
- *
- *    template <> classPrinter< MyRet, MyRet(MyArg&), myFunction > {
- *       public:
- *          static void print( const MyRet &result ) {
- *              <print result here>
- *          }
- *    }
- */
-template <typename R, typename SIG, SIG *sig> class Printer : public PrinterBase<R, R> {
-};
-
 class ContextElBase {
 public:
 	virtual bool isConst() const = 0;
@@ -625,22 +605,23 @@ public:
 	{
 	}
 
+	virtual unsigned getNumArgs() const
+	{
+		return mutableArgIdx_.size();
+	}
+
+	virtual ContextElBase * getArg(unsigned idx) const
+	{
+	int argIdx;
+
+		if ( idx >= getNumArgs() || (argIdx = mutableArgIdx_[idx]) < 0 )
+			return 0;
+		return (*this)[argIdx];
+	}
+
 	virtual ~Context()
 	{
-	bool     headerPrinted = false;
-	unsigned i;
-	int      argIdx;
 	iterator it;
-
-		for ( i = 0; i < mutableArgIdx_.size(); i++ ) {
-			if ( (argIdx = mutableArgIdx_[i]) >= 0 && ! (*this)[argIdx]->isConst() ) {
-				if ( ! headerPrinted ) {
-					errlogPrintf("Mutable arguments after execution:\n");
-					headerPrinted = true;
-				}
-				errlogPrintf("arg[%i]: ", i); (*this)[argIdx]->print();
-			}
-		}
 
 		for ( it = begin(); it != end(); ++it ) {
 			delete *it;
@@ -680,6 +661,59 @@ public:
 	{
 	}
 };
+
+/*
+ * Default implementation
+ */
+struct ArgPrinterBase {
+public:
+	/*
+	 * Print arguments recorded in the context. These
+	 * are mutable arguments that can be modified by
+	 * the user function.
+	 */
+	static void printArgs(Context *ctx)
+	{
+	bool     headerPrinted = false;
+	unsigned i;
+	unsigned nargs         = ctx->getNumArgs();
+
+		for ( i = 0; i < nargs; i++ ) {
+			ContextElBase *el = ctx->getArg( i );
+			if ( el && ! el->isConst() ) {
+				if ( ! headerPrinted ) {
+					errlogPrintf("Mutable arguments after execution:\n");
+					headerPrinted = true;
+				}
+				errlogPrintf("arg[%i]: ", i); el->print();
+			}
+		}
+	}
+};
+
+/*
+ * Finally, the Printer can be specialized for a particular user function 'sig'
+ *
+ * If you have a user function:
+ *
+ *    MyRet myFunction( MyArg & );
+ *
+ * Then you can specialize how the results of this function are printed:
+ *
+ *    template <> classPrinter< MyRet, MyRet(MyArg&), myFunction > {
+ *       public:
+ *          static void print( const MyRet &result ) {
+ *              <print result here>
+ *          }
+ *    }
+ */
+template <typename R, typename SIG, SIG *sig, int USER = 0> class Printer    : public PrinterBase<R, R> {
+};
+
+template <typename SIG, SIG *sig, int USER = 0> class ArgPrinter : public ArgPrinterBase {
+};
+
+typedef void (*ArgPrinterType)(Context*);
 
 /*
  * Converter to map between user function arguments and iocshArg/iocshArgBuf
@@ -977,6 +1011,11 @@ template <typename R, typename SIG> struct Guesser {
 	{
 		return Printer<R, SIG, sig>::print;
 	}
+
+	template <SIG *sig> static ArgPrinterType getArgPrinter()
+	{
+		return ArgPrinter<SIG, sig>::printArgs;
+	}
 };
 
 /*
@@ -989,6 +1028,11 @@ template <typename SIG> struct Guesser<void, SIG> {
 	template <SIG *sig> static PrinterType getPrinter()
 	{
 		return 0;
+	}
+
+	template <SIG *sig> static ArgPrinterType getArgPrinter()
+	{
+		return ArgPrinter<SIG, sig>::printArgs;
 	}
 };
 
@@ -1147,12 +1191,15 @@ template <typename SIG, typename R, typename ...A> Guesser<R, SIG> makeGuesser(R
 
 template <bool PRINT, typename R, typename ...A>
 static void
-dispatch(R (*f)(A...), const iocshArgBuf *args, typename EvalResult<R>::PrinterType printer)
+dispatch(R (*f)(A...), const iocshArgBuf *args, typename EvalResult<R>::PrinterType printer, ArgPrinterType printArgs)
 {
 	try {
 		Context ctx( args, sizeof...(A) );
 		( EvalResult<R, PRINT>( printer ), /* <== magic 'operator,' */
 		  ArgOrder<A...>::arrange( f, args , &ctx ) );
+		if ( PRINT ) {
+			printArgs( &ctx );
+		}
 	} catch ( ConversionError &e ) {
 		errlogPrintf( "Error: Invalid Argument -- %s\n", e.what() );
 	}
@@ -1163,7 +1210,7 @@ dispatch(R (*f)(A...), const iocshArgBuf *args, typename EvalResult<R>::PrinterT
  */
 template <typename RR, RR *p, bool PRINT=true> void call(const iocshArgBuf *args)
 {
-	dispatch<PRINT>( p, args, makeGuesser<RR>( p ).template getPrinter<p>() );
+	dispatch<PRINT>( p, args, makeGuesser<RR>( p ).template getPrinter<p>(), makeGuesser<RR>( p ).template getArgPrinter<p>() );
 }
 
 }
@@ -1274,15 +1321,18 @@ done:
  * (currently supported max. - 1); see below...
  */
 
-#define IOCSH_DECL_WRAPPER_DO_CALL(args...)                              \
-	do {                                                                 \
-		try {                                                            \
-			EvalResult<R, PRINT>(                                        \
-				Guesser<R, type>().template getPrinter<func> ()          \
-            ), func( args ); /* <= magic 'operator,' */                  \
-		} catch ( IocshDeclWrapper::ConversionError &e ) {               \
-			errlogPrintf( "Error: Invalid Argument -- %s\n", e.what() ); \
-		}                                                                \
+#define IOCSH_DECL_WRAPPER_DO_CALL(args...)                                  \
+	do {                                                                     \
+		try {                                                                \
+			EvalResult<R, PRINT>(                                            \
+				Guesser<R, type>().template getPrinter<func> ()              \
+            ), func( args ); /* <= magic 'operator,' */                      \
+			if ( PRINT ) {                                                   \
+				Guesser<R, type>().template getArgPrinter<func>()( &ctx );   \
+			}                                                                \
+		} catch ( IocshDeclWrapper::ConversionError &e ) {                   \
+			errlogPrintf( "Error: Invalid Argument -- %s\n", e.what() );     \
+		}                                                                    \
 	} while (0)
 
 template <typename R, typename A0, typename A1, typename A2, typename A3, typename A4,
@@ -1644,7 +1694,8 @@ public:
 
 	template <type *func, bool PRINT> static void call(const iocshArgBuf *args)
 	{
-		IOCSH_DECL_WRAPPER_DO_CALL( );
+		IocshDeclWrapper::Context ctx( args, N );
+		IOCSH_DECL_WRAPPER_DO_CALL();
 	}
 };
 

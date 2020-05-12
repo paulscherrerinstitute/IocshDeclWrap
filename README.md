@@ -1,6 +1,6 @@
 # IocshDeclWrapper
 
-Till Straumann, 2020/3
+Till Straumann, 2020/5
 
 *IocshDeclWrapper* is hosted on
 [github](https://github.com/paulscherrerinstitute/IocshDeclWrap.git)
@@ -21,6 +21,8 @@ Wrapping a user function requires the following steps:
 5. define a wrapper function which extracts function
    arguments from a `iocshArgBuf*` array, passes
    them to the user function and prints its result.
+   The values of mutable arguments (passed by pointers
+   or references) are also printed.
 6. register the wrapper function and `iocshFuncDef`
    with `iocsh`. This is often done via a 'registrar'
    function that must be defined and declared in a
@@ -108,7 +110,8 @@ be printed to the console then you use
 Use this variant also if no `Printer` (see below) for the
 return type of your function is available and you want to
 suppress the respective notice which is otherwise printed
-to the console.
+to the console. Note that printing of the values of mutable
+arguments is also suppressed by this variant.
 
 ### C++98 Restrictions
 
@@ -153,6 +156,9 @@ standard integral types as well as `char*` (C-strings),
 `std::string`, `double`, `float` and `std::complex` are
 already implemented.
 
+Specializations for dealing with pointers and references to
+standard integral types, floats and strings are also provided.
+
 If a particular type cannot be handled by the existing
 templates then the you can easily define your own
 specialization:
@@ -195,7 +201,8 @@ during the conversion process. Such an object may need to be passed
 to the user function and therefore remain available outside of the scope of
 `Context::getArg`. This is what the context is used for. It lets you allocate
 something new and attach it to the context. The context is eventually destroyed
-after the user function returns.
+after the user function returns. This is always necessary if you cannot
+pass an argument by value.
 
 Here is the example where the user function expects a C++ `std::string *` pointer
 argument; since the `iocshArgBuf` only holds a `const char *` pointer we have to
@@ -215,7 +222,7 @@ create a new `std::string` which must persist until the user function returns:
          /*
           * 'make' creates a new string and attaches it to the context
           * 'argNo' tells us which argument we are converting.
-          *  This can is used when printing arguments that were
+          *  This can is used for printing arguments that were
           *  possibly modified by the user function (pointer/reference
           *  arguments to non-const objects).
           */
@@ -344,6 +351,12 @@ While you are not using `PrinterBase::print` in this case you
 should still derive your `Printer` class from `PrinterBase`.
 This ensures forward-compatibility if the `PrinterBase` class
 is ever enhanced with additional members.
+
+#### The `ArgPrinter` Template
+This template is used to print the values of mutable arguments
+after the user function returns. It can also be specialized for
+a particular function signature. Consult the `Printer` template
+section for more information.
 
 #### Printing Summary
 
