@@ -16,6 +16,7 @@
 #include <vector>
 #include <complex>
 #include <stdlib.h>
+#include <stdarg.h>
 
 /* Helper templates that automate the generation of infamous boiler-plate code
  * which is necessary to wrap a user function for iocsh:
@@ -75,143 +76,6 @@
 
 namespace IocshDeclWrapper {
 
-class ContextElBase {
-public:
-	/* base class just knows how to delete things */
-	virtual ~ContextElBase() {}
-};
-
-/* 'Reference holder' for abitrary simple objects. Similar to
- * a (very dumb) smart pointer but without having to worry about
- * C++11 or boost.
- */
-template <typename T, typename I> class ContextEl : public ContextElBase {
-	T *p_;
-	ContextEl<T,I>(I inival)
-	{
-		p_ = new T( inival );
-	}
-public:
-
-	T * p()
-	{
-		return p_;
-	}
-
-	virtual ~ContextEl()
-	{
-		delete p_;
-	}
-
-	friend class Context;
-};
-
-/*
- * Specialization for C-strings
- */
-template <> class ContextEl<char[], const char *>: public ContextElBase {
-	char *p_;
-	ContextEl(const char *inival)
-	{
-		p_ = epicsStrDup( inival );
-	}
-public:
-
-	typedef char type[];
-
-	type * p()
-	{
-		return (type*)p_;
-	}
-
-	virtual ~ContextEl()
-	{
-		::free( p_ );
-	}
-
-	friend class Context;
-};
-
-/*
- * Context holds the object pointers until the Context is
- * destroyed. Its destructor eventually delets all objects
- * held by the Context.
- */
-class Context : public std::vector<ContextElBase*> {
-public:
-	virtual ~Context()
-	{
-		iterator it;
-		for ( it = begin(); it != end(); ++it ) {
-			delete *it;
-		}
-	}
-
-	/*
-	 * Create a new object of type T and attach to
-	 * the Context.
-	 * RETURNS: pointer to the new object.
-	 */
-	template <typename T, typename I> T * make(I i)
-	{
-		ContextEl<T,I> *el = new ContextEl<T,I>( i );
-		push_back(el);
-		return el->p();
-	}
-};
-
-class ConversionError : public std::runtime_error {
-public:
-	ConversionError( const std::string & msg )
-	: runtime_error( msg )
-	{
-	}
-
-	ConversionError( const char * msg )
-	: runtime_error( std::string( msg ) )
-	{
-	}
-};
-
-/*
- * Converter to map between user function arguments and iocshArg/iocshArgBuf
- */
-template <typename T, typename R = T, int USER=0> struct Convert {
-	/*
-	 * Set argument type and default name in iocshArg for type 'T'.
-	 */
-	static void setArg(iocshArg *arg);
-	/*
-	 * Retrieve argument from iocshArgBuf and convert into
-	 * target type 'R'. May allocate objects in 'Context'.
-	 *
-	 * May throw 'ConversionError'.
-	 */
-	static R    getArg(const iocshArgBuf *, Context *);
-};
-
-/*
- * Allocate a new iocshArg struct and call
- * Convert::setArg() for type 'T'
- */
-template <typename T>
-iocshArg *makeArg(const char *aname = 0)
-{
-	iocshArg *rval = new iocshArg;
-
-	rval->name = 0;
-	Convert<T>::setArg( rval );
-	if ( aname ) {
-		rval->name = aname;
-	}
-	return rval;
-}
-
-/*
- * Template specializations for basic arithmetic types
- * and strings.
- */
-
 /*
  * SFINAE helpers (we don't necessarily have C++11 and avoid boost)
  */
@@ -221,10 +85,9 @@ template <typename T> struct is_int;
 		typedef x type;              \
 		static const char *name()    \
 		{                            \
-			return "<" #x ">";       \
+			return  #x ;             \
         }                            \
 	}
-
 /* All of these are extracted from iocshArgBuf->ival */
 IOCSH_DECL_WRAPPER_IS_INT(unsigned long long);
 IOCSH_DECL_WRAPPER_IS_INT(         long long);
@@ -240,22 +103,6 @@ IOCSH_DECL_WRAPPER_IS_INT(              bool);
 
 #undef IOSH_DECL_WRAPPER_IS_INT
 
-/* Specialization for all integral types */
-template <typename T, int USER> struct Convert<T, typename is_int<T>::type, USER> {
-
-	typedef typename is_int<T>::type type;
-
-	static void setArg(iocshArg *a)
-	{
-		a->name = is_int<T>::name();
-		a->type = iocshArgInt;
-	}
-
-	static type getArg(const iocshArgBuf *arg, Context *ctx)
-	{
-		return (type)arg->ival;
-	}
-};
 
 template <typename T> struct is_str;
 template <> struct is_str <std::string       > { typedef       std::string   type; };
@@ -267,96 +114,9 @@ template <typename T> struct is_strp;
 template <> struct is_strp<std::string      *> { typedef       std::string * type; };
 template <> struct is_strp<const std::string*> { typedef const std::string * type; };
 
-template <typename T> struct is_chrp;
+template <typename T> struct is_chrp           { typedef                  T  falsetype; };
 template <> struct is_chrp<char             *> { typedef       char        * type; };
 template <> struct is_chrp<const char       *> { typedef const char        * type; };
-
-static void setArgStr(iocshArg *a)
-{
-	a->name = "<string>";
-	a->type = iocshArgString;
-}
-
-/* Specialization for strings and string reference */
-template <typename T, int USER> struct Convert<T, typename is_str<T>::type, USER> {
-
-	typedef typename is_str<T>::type type;
-
-	static void setArg(iocshArg *a)
-	{
-		setArgStr( a );
-	}
-
-	static type getArg(const iocshArgBuf *a, Context *ctx)
-	{
-		return * ctx->make<std::string, const char *>( a->sval ? a->sval : "" );
-	}
-};
-
-/* Specialization for string pointer */
-template <typename T, int USER> struct Convert<T, typename is_strp<T>::type, USER> {
-
-	typedef typename is_strp<T>::type type;
-
-	static void setArg(iocshArg *a)
-	{
-		setArgStr( a );
-	}
-
-	static type getArg(const iocshArgBuf *a, Context *ctx)
-	{
-		return a->sval ? ctx->make<std::string, const char *>( a->sval ) : 0;
-	}
-};
-
-/* Specialization for C-strings */
-template <int USER> struct Convert<const char *, const char *, USER> {
-
-	static void setArg(iocshArg *a)
-	{
-		setArgStr( a );
-	}
-
-	static const char * getArg(const iocshArgBuf *a, Context *ctx)
-	{
-		return a->sval;
-	}
-};
-
-/* Specialization for mutable C-strings */
-template <int USER> struct Convert<char *, char *, USER> {
-
-	static void setArg(iocshArg *a)
-	{
-		setArgStr( a );
-	}
-
-	static char * getArg(const iocshArgBuf *a, Context *ctx)
-	{
-		/* must make a copy of the const char * help in the iocshArgBuf */
-		return (char*)ctx->make<char[], const char *>( a->sval );
-	}
-};
-
-/* Specialization for floats */
-template <typename T> struct is_flt;
-template <> struct is_flt<float > { typedef float  type; static const char *name() { return "<float>" ; } };
-template <> struct is_flt<double> { typedef double type; static const char *name() { return "<double>"; } };
-
-template <typename T, int USER> struct Convert<T, typename is_flt<T>::type, USER> {
-	typedef typename is_flt<T>::type type;
-
-	static void setArg(iocshArg *a)
-	{
-		a->name = is_flt<T>::name();
-		a->type = iocshArgDouble;
-	}
-
-	static type getArg(const iocshArgBuf *a, Context *ctx)
-	{
-		return (type) a->dval;
-	}
-};
 
 template <typename T> struct is_cplx;
 template <> struct is_cplx< std::complex<float> > {
@@ -374,25 +134,48 @@ template <> struct is_cplx< std::complex<long double> > {
 	static const char                *fmt() { return "%Lg j %Lg"; }
 };
 
-/* Specialization for std::complex */
-template <typename T, int USER> struct Convert<T, typename is_cplx<T>::type, USER> {
-	typedef typename is_cplx<T>::type type;
-
-	static void setArg(iocshArg *a)
-	{
-		a->name = "complex number as string: \"<real> j <imag>\"";
-		a->type = iocshArgString;
-	}
-
-	static type getArg(const iocshArgBuf *a, Context *ctx)
-	{
-		typename type::value_type r, i;
-		if ( ! a->sval || 2 != sscanf( a->sval, is_cplx<T>::fmt(), &r, &i ) ) {
-			throw ConversionError("unable to scan argument into '%g j %g' format");
-		}
-		return type( r, i );
-	}
+template <typename T> struct is_const {
+	const static bool value = false;
 };
+
+template <typename T> struct is_const<const T> {
+	const static bool value = true;
+};
+
+template <typename T> struct is_const<const T *> {
+	const static bool value = true;
+};
+
+template <typename T> struct is_const<const T &> {
+	const static bool value = true;
+};
+
+template <typename T> struct is_ptr {
+	const static bool value = false;
+};
+
+template <typename T> struct is_ptr<T *> {
+	const static bool value = true;
+};
+
+template <typename T> struct is_ptr<T *const> {
+	const static bool value = true;
+};
+
+template <typename T> struct is_ref {
+	const static bool value = false;
+};
+
+template <typename T> struct is_ref<T &> {
+	const static bool value = true;
+};
+
+template <typename T> struct textract           { typedef T element_type; };
+template <typename T> struct textract<const T > { typedef T element_type; };
+template <typename T> struct textract<const T*> { typedef T element_type; };
+template <typename T> struct textract<const T&> { typedef T element_type; };
+template <typename T> struct textract<      T*> { typedef T element_type; };
+template <typename T> struct textract<      T&> { typedef T element_type; };
 
 /* Work-around for C++89
  *  The idiom
@@ -414,54 +197,6 @@ template <typename T> struct Reference<T&> {
 	typedef const T &const_type;
 };
 
-/*
- * Handling the result of the user function: we use an (overridable) 'print'
- * function that we apply to the result.
- * The problem here is that print( f() ) is an error if f() returns 'void'.
- * We use a trick: since the 'comma' expression '(x, f())' is valid even
- * if f() returns void we can use an object 'x' from a class that overrides
- * the ',' operator. Note that an overridden 'operator,' does not quite behave
- * like the normal one (see C++ standard) -- but the trick leaves the built-in
- * version in place for the 'void' variant while overriding everything else:
- */
-
-template <typename R, bool PRINT=true> class EvalResult {
-public:
-	/* Printer function */
-	typedef void (*PrinterType) (typename Reference<R>::const_type);
-private:
-	PrinterType pri;
-public:
-	EvalResult(PrinterType pri)
-	: pri( pri )
-	{
-	}
-
-	/* Our ',' operator applies the printer function */
-	void operator,(typename Reference<R>::const_type result)
-	{
-		if ( PRINT ) {
-			pri( result );
-		}
-	}
-};
-
-/*
- * Specialization for 'void' results. *remove* the overridden
- * comma operator.
- * The print function type is just a dummy...
- */
-template <bool PRINT> class EvalResult<void, PRINT> {
-public:
-	/* Printer function */
-	typedef void *PrinterType;
-
-	EvalResult(PrinterType pri)
-	{
-	}
-
-	/* Use the built-in 'operator,' */
-};
 
 /*
  * For the default Printer implementation we
@@ -597,6 +332,14 @@ template <typename T, int USER> struct PrintFmts<T, typename is_chrp<T>::type, U
 	}
 };
 
+template <typename T, int USER> struct PrintFmts<T *, typename is_chrp<T*>::falsetype, USER> {
+	static const char **get()
+	{
+		static const char *r[] = { "%p", 0 };
+		return r;
+	}
+};
+
 /*
  * This template can be overridden to handle class T.
  * The template is expanded PrinterBase< sometype, sometype, 0 >
@@ -623,6 +366,16 @@ public:
 			}
 			errlogPrintf("\n");
 		}
+	}
+};
+
+/*
+ * Specialization for C-Strings (override scalar pointer specialization)
+ */
+template<int USER> class PrinterBase<const char *, const char *, USER> {
+public:
+	static void print( typename Reference<const char*>::const_type r ) {
+		errlogPrintf("%s\n", r);
 	}
 };
 
@@ -682,6 +435,411 @@ public:
 template <typename R, typename SIG, SIG *sig> class Printer : public PrinterBase<R, R> {
 };
 
+class ContextElBase {
+public:
+	virtual bool isConst() const = 0;
+	virtual void print()     {}
+	virtual ~ContextElBase() {}
+};
+
+/* 'Reference holder' for abitrary simple objects. Similar to
+ * a (very dumb) smart pointer but without having to worry about
+ * C++11 or boost.
+ */
+template <typename T, typename I> class ContextEl : public ContextElBase {
+protected:
+	T *p_;
+	ContextEl(I inival)
+	{
+		p_ = new T( inival );
+	}
+public:
+
+	virtual bool isConst() const
+	{
+		return is_const<T>::value;
+	}
+
+	T * p()
+	{
+		return p_;
+	}
+
+	virtual void print()
+	{
+		PrinterBase<T, T, 0>::print( *p() );
+	}
+
+	virtual ~ContextEl()
+	{
+		delete p_;
+	}
+
+	friend class Context;
+};
+
+/*
+ * Specialization for C-strings
+ */
+template <> class ContextEl<char[], const char *>: public ContextElBase {
+protected:
+	char *p_;
+	ContextEl(const char *inival)
+	{
+		p_ = inival ? epicsStrDup( inival ) : 0;
+	}
+public:
+
+	virtual bool isConst() const
+	{
+		return false;
+	}
+
+	typedef char type[];
+
+	type * p()
+	{
+		return (type*)p_;
+	}
+
+	virtual void print()
+	{
+		PrinterBase< const char *, const char *, 0 >::print( p_ );
+	}
+
+
+	virtual ~ContextEl()
+	{
+		::free( p_ );
+	}
+
+	friend class Context;
+};
+
+/*
+ * Context holds the object pointers until the Context is
+ * destroyed. Its destructor eventually delets all objects
+ * held by the Context.
+ */
+class Context : public std::vector<ContextElBase*> {
+private:
+	const iocshArgBuf *args_;
+	std::vector<int>   mutableArgIdx_;
+
+public:
+	Context(const iocshArgBuf *args, unsigned numArgs)
+	: args_         ( args        ),
+	  mutableArgIdx_( numArgs, -1 )
+	{
+	}
+
+	virtual ~Context()
+	{
+	bool     headerPrinted = false;
+	unsigned i;
+	int      argIdx;
+	iterator it;
+
+		for ( i = 0; i < mutableArgIdx_.size(); i++ ) {
+			if ( (argIdx = mutableArgIdx_[i]) >= 0 && ! (*this)[argIdx]->isConst() ) {
+				if ( ! headerPrinted ) {
+					errlogPrintf("Mutable arguments after execution:\n");
+					headerPrinted = true;
+				}
+				errlogPrintf("arg[%i]: ", i); (*this)[argIdx]->print();
+			}
+		}
+
+		for ( it = begin(); it != end(); ++it ) {
+			delete *it;
+		}
+	}
+
+	const iocshArgBuf *getArgBuf()
+	{
+		return args_;
+	}
+
+	/*
+	 * Create a new object of type T and attach to
+	 * the Context.
+	 * RETURNS: pointer to the new object.
+	 */
+	template <typename T, typename I, bool PRINT=false> T * make(I i, int recordIdx = -1)
+	{
+		ContextEl<T,I> *el = new ContextEl<T,I>( i );
+		if ( recordIdx >= 0 && (unsigned)recordIdx < mutableArgIdx_.size() ) {
+			mutableArgIdx_[ recordIdx ] = size();
+		}
+		push_back(el);
+		return el->p();
+	}
+};
+
+class ConversionError : public std::runtime_error {
+public:
+	ConversionError( const std::string & msg )
+	: runtime_error( msg )
+	{
+	}
+
+	ConversionError( const char * msg )
+	: runtime_error( std::string( msg ) )
+	{
+	}
+};
+
+/*
+ * Converter to map between user function arguments and iocshArg/iocshArgBuf
+ */
+template <typename T, typename R = T, int USER=0> struct Convert;
+#if 0
+{
+	/*
+	 * Set argument type and default name in iocshArg for type 'T'.
+	 */
+	static void setArg(iocshArg *arg);
+	/*
+	 * Retrieve argument from iocshArgBuf and convert into
+	 * target type 'R'. May allocate objects in 'Context'.
+	 *
+	 * May throw 'ConversionError'.
+	 */
+	static R    getArg(const iocshArgBuf *, Context *, int argNo);
+};
+#endif
+
+/*
+ * Allocate a new iocshArg struct and call
+ * Convert::setArg() for type 'T'
+ */
+template <typename T>
+iocshArg *makeArg(const char *aname = 0)
+{
+	iocshArg *rval = new iocshArg;
+
+	rval->name = 0;
+	Convert<T>::setArg( rval );
+	if ( aname ) {
+		rval->name = aname;
+	}
+	return rval;
+}
+
+/*
+ * Template specializations for basic arithmetic types
+ * and strings.
+ */
+
+template <int USER> struct ArgName {
+	static const char *make(const char *fmt, ...)
+	{
+	int   len  = 0;
+	char *rval = 0;
+	va_list ap;
+		va_start(ap, fmt);
+		len = vsnprintf(rval, len, fmt, ap);
+		va_end(ap);
+		if ( len++ < 0 || 0 == (rval = (char*)malloc( len )) ) {
+			return 0;
+		}
+		va_start(ap, fmt);
+		len = vsnprintf(rval, len, fmt, ap);
+		va_end(ap);
+		
+		if ( len < 0 ) {
+			free(rval);
+			rval = 0;
+		}
+		return rval;
+	}
+};
+
+/* Specialization for all integral types */
+template <typename T, int USER> struct Convert<T, typename is_int<T>::type, USER> {
+
+	typedef typename is_int<T>::type type;
+
+	static void setArg(iocshArg *a)
+	{
+	static const char *n = 0;
+		if ( !n ) {
+			n = ArgName<0>::make( "<%s>", is_int<T>::name() );
+		}
+		a->name = n ? n : "";
+		a->type = iocshArgInt;
+	}
+
+	static type getArg(const iocshArgBuf *arg, Context *ctx, int argNo)
+	{
+		return (type)arg->ival;
+	}
+};
+
+static void setArgStr(iocshArg *a)
+{
+	a->name = "<string>";
+	a->type = iocshArgString;
+}
+
+/* Specialization for strings and string reference */
+template <typename T, int USER> struct Convert<T, typename is_str<T>::type, USER> {
+
+	typedef typename is_str<T>::type type;
+
+	static void setArg(iocshArg *a)
+	{
+		setArgStr( a );
+	}
+
+	static type getArg(const iocshArgBuf *a, Context *ctx, int argNo)
+	{
+		if ( is_const<T>::value )
+			argNo = -1; // not a mutable arg
+		return * ctx->make<std::string, const char *>( a->sval ? a->sval : "", argNo );
+	}
+};
+
+/* Specialization for string pointer */
+template <typename T, int USER> struct Convert<T, typename is_strp<T>::type, USER> {
+
+	typedef typename is_strp<T>::type type;
+
+	static void setArg(iocshArg *a)
+	{
+		setArgStr( a );
+	}
+
+	static type getArg(const iocshArgBuf *a, Context *ctx, int argNo)
+	{
+		if ( is_const<T>::value )
+			argNo = -1; // not a mutable arg
+		return a->sval ? ctx->make<std::string, const char *>( a->sval, argNo ) : 0;
+	}
+};
+
+/* Specialization for C-strings */
+template <int USER> struct Convert<const char *, const char *, USER> {
+
+	static void setArg(iocshArg *a)
+	{
+		setArgStr( a );
+	}
+
+	static const char * getArg(const iocshArgBuf *a, Context *ctx, int argNo)
+	{
+		return a->sval;
+	}
+};
+
+/* Specialization for mutable C-strings */
+template <int USER> struct Convert<char *, char *, USER> {
+
+	static void setArg(iocshArg *a)
+	{
+		setArgStr( a );
+	}
+
+	static char * getArg(const iocshArgBuf *a, Context *ctx, int argNo)
+	{
+		/* must make a copy of the const char * help in the iocshArgBuf */
+		return (char*)ctx->make<char[], const char *>( a->sval, argNo );
+	}
+};
+
+/* Specialization for floats */
+template <typename T> struct is_flt;
+template <> struct is_flt<float > { typedef float  type; static const char *name() { return "float" ; } };
+template <> struct is_flt<double> { typedef double type; static const char *name() { return "double"; } };
+
+template <typename T, int USER> struct Convert<T, typename is_flt<T>::type, USER> {
+	typedef typename is_flt<T>::type type;
+
+	static void setArg(iocshArg *a)
+	{
+	static const char *n = 0;
+		if ( !n ) {
+			n = ArgName<0>::make("<%s>", is_flt<T>::name());
+		}
+		a->name = n ? n : "";
+		a->type = iocshArgDouble;
+	}
+
+	static type getArg(const iocshArgBuf *a, Context *ctx, int argNo)
+	{
+		return (type) a->dval;
+	}
+};
+
+/* Specialization for std::complex */
+template <typename T, int USER> struct Convert<T, typename is_cplx<T>::type, USER> {
+	typedef typename is_cplx<T>::type type;
+
+	static void setArg(iocshArg *a)
+	{
+		a->name = "complex number as string: \"<real> j <imag>\"";
+		a->type = iocshArgString;
+	}
+
+	static type getArg(const iocshArgBuf *a, Context *ctx, int argNo)
+	{
+		typename type::value_type r, i;
+		if ( ! a->sval || 2 != sscanf( a->sval, is_cplx<T>::fmt(), &r, &i ) ) {
+			throw ConversionError("unable to scan argument into '%g j %g' format");
+		}
+		return type( r, i );
+	}
+};
+
+/*
+ * Handling the result of the user function: we use an (overridable) 'print'
+ * function that we apply to the result.
+ * The problem here is that print( f() ) is an error if f() returns 'void'.
+ * We use a trick: since the 'comma' expression '(x, f())' is valid even
+ * if f() returns void we can use an object 'x' from a class that overrides
+ * the ',' operator. Note that an overridden 'operator,' does not quite behave
+ * like the normal one (see C++ standard) -- but the trick leaves the built-in
+ * version in place for the 'void' variant while overriding everything else:
+ */
+
+template <typename R, bool PRINT=true> class EvalResult {
+public:
+	/* Printer function */
+	typedef void (*PrinterType) (typename Reference<R>::const_type);
+private:
+	PrinterType pri;
+public:
+	EvalResult(PrinterType pri)
+	: pri( pri )
+	{
+	}
+
+	/* Our ',' operator applies the printer function */
+	void operator,(typename Reference<R>::const_type result)
+	{
+		if ( PRINT ) {
+			pri( result );
+		}
+	}
+};
+
+/*
+ * Specialization for 'void' results. *remove* the overridden
+ * comma operator.
+ * The print function type is just a dummy...
+ */
+template <bool PRINT> class EvalResult<void, PRINT> {
+public:
+	/* Printer function */
+	typedef void *PrinterType;
+
+	EvalResult(PrinterType pri)
+	{
+	}
+
+	/* Use the built-in 'operator,' */
+};
+
 /*
  * Build a Printer signature
  */
@@ -706,6 +864,7 @@ template <typename SIG> struct Guesser<void, SIG> {
 		return 0;
 	}
 };
+
 
 /*
  * Helper class for building a iocshFuncDef
@@ -823,7 +982,7 @@ template <typename ...A> struct ArgOrder {
 		/* Once we have a pair of parameter packs: A... I... we can expand */
 		template <typename R> static R dispatch(R (*f)(A...), const iocshArgBuf *args, Context *ctx)
 		{
-			return f( Convert<A>::getArg( &args[I], ctx )... );
+			return f( Convert<A>::getArg( &args[I], ctx, I )... );
 		}
 	};
 
@@ -864,7 +1023,7 @@ static void
 dispatch(R (*f)(A...), const iocshArgBuf *args, typename EvalResult<R>::PrinterType printer)
 {
 	try {
-		Context ctx;
+		Context ctx( args, sizeof...(A) );
 		( EvalResult<R, PRINT>( printer ), /* <== magic 'operator,' */
 		  ArgOrder<A...>::arrange( f, args , &ctx ) );
 	} catch ( ConversionError &e ) {
@@ -1037,18 +1196,18 @@ public:
 	 */
 	template <type *func, bool PRINT> static void call(const iocshArgBuf *args)
 	{
-		IocshDeclWrapper::Context ctx;
+		IocshDeclWrapper::Context ctx( args, N );
 		IOCSH_DECL_WRAPPER_DO_CALL(
-			IocshDeclWrapper::Convert<A0>::getArg( &args[0], &ctx ),
-			IocshDeclWrapper::Convert<A1>::getArg( &args[1], &ctx ),
-			IocshDeclWrapper::Convert<A2>::getArg( &args[2], &ctx ),
-			IocshDeclWrapper::Convert<A3>::getArg( &args[3], &ctx ),
-			IocshDeclWrapper::Convert<A4>::getArg( &args[4], &ctx ),
-			IocshDeclWrapper::Convert<A5>::getArg( &args[5], &ctx ),
-			IocshDeclWrapper::Convert<A6>::getArg( &args[6], &ctx ),
-			IocshDeclWrapper::Convert<A7>::getArg( &args[7], &ctx ),
-			IocshDeclWrapper::Convert<A8>::getArg( &args[8], &ctx ),
-			IocshDeclWrapper::Convert<A9>::getArg( &args[9], &ctx )
+			IocshDeclWrapper::Convert<A0>::getArg( &args[0], &ctx, 0 ),
+			IocshDeclWrapper::Convert<A1>::getArg( &args[1], &ctx, 1 ),
+			IocshDeclWrapper::Convert<A2>::getArg( &args[2], &ctx, 2 ),
+			IocshDeclWrapper::Convert<A3>::getArg( &args[3], &ctx, 3 ),
+			IocshDeclWrapper::Convert<A4>::getArg( &args[4], &ctx, 4 ),
+			IocshDeclWrapper::Convert<A5>::getArg( &args[5], &ctx, 5 ),
+			IocshDeclWrapper::Convert<A6>::getArg( &args[6], &ctx, 6 ),
+			IocshDeclWrapper::Convert<A7>::getArg( &args[7], &ctx, 7 ),
+			IocshDeclWrapper::Convert<A8>::getArg( &args[8], &ctx, 8 ),
+			IocshDeclWrapper::Convert<A9>::getArg( &args[9], &ctx, 9 )
 		);
 	}
 };
@@ -1074,17 +1233,17 @@ public:
 
 	template <type *func, bool PRINT> static void call(const iocshArgBuf *args)
 	{
-		IocshDeclWrapper::Context ctx;
+		IocshDeclWrapper::Context ctx( args, N );
 		IOCSH_DECL_WRAPPER_DO_CALL(
-			IocshDeclWrapper::Convert<A0>::getArg( &args[0], &ctx ),
-			IocshDeclWrapper::Convert<A1>::getArg( &args[1], &ctx ),
-			IocshDeclWrapper::Convert<A2>::getArg( &args[2], &ctx ),
-			IocshDeclWrapper::Convert<A3>::getArg( &args[3], &ctx ),
-			IocshDeclWrapper::Convert<A4>::getArg( &args[4], &ctx ),
-			IocshDeclWrapper::Convert<A5>::getArg( &args[5], &ctx ),
-			IocshDeclWrapper::Convert<A6>::getArg( &args[6], &ctx ),
-			IocshDeclWrapper::Convert<A7>::getArg( &args[7], &ctx ),
-			IocshDeclWrapper::Convert<A8>::getArg( &args[8], &ctx )
+			IocshDeclWrapper::Convert<A0>::getArg( &args[0], &ctx, 0 ),
+			IocshDeclWrapper::Convert<A1>::getArg( &args[1], &ctx, 1 ),
+			IocshDeclWrapper::Convert<A2>::getArg( &args[2], &ctx, 2 ),
+			IocshDeclWrapper::Convert<A3>::getArg( &args[3], &ctx, 3 ),
+			IocshDeclWrapper::Convert<A4>::getArg( &args[4], &ctx, 4 ),
+			IocshDeclWrapper::Convert<A5>::getArg( &args[5], &ctx, 5 ),
+			IocshDeclWrapper::Convert<A6>::getArg( &args[6], &ctx, 6 ),
+			IocshDeclWrapper::Convert<A7>::getArg( &args[7], &ctx, 7 ),
+			IocshDeclWrapper::Convert<A8>::getArg( &args[8], &ctx, 8 ),
 		);
 	}
 };
@@ -1110,16 +1269,16 @@ public:
 
 	template <type *func, bool PRINT> static void call(const iocshArgBuf *args)
 	{
-		IocshDeclWrapper::Context ctx;
+		IocshDeclWrapper::Context ctx( args, N );
 		IOCSH_DECL_WRAPPER_DO_CALL(
-			IocshDeclWrapper::Convert<A0>::getArg( &args[0], &ctx ),
-			IocshDeclWrapper::Convert<A1>::getArg( &args[1], &ctx ),
-			IocshDeclWrapper::Convert<A2>::getArg( &args[2], &ctx ),
-			IocshDeclWrapper::Convert<A3>::getArg( &args[3], &ctx ),
-			IocshDeclWrapper::Convert<A4>::getArg( &args[4], &ctx ),
-			IocshDeclWrapper::Convert<A5>::getArg( &args[5], &ctx ),
-			IocshDeclWrapper::Convert<A6>::getArg( &args[6], &ctx ),
-			IocshDeclWrapper::Convert<A7>::getArg( &args[7], &ctx )
+			IocshDeclWrapper::Convert<A0>::getArg( &args[0], &ctx, 0 ),
+			IocshDeclWrapper::Convert<A1>::getArg( &args[1], &ctx, 1 ),
+			IocshDeclWrapper::Convert<A2>::getArg( &args[2], &ctx, 2 ),
+			IocshDeclWrapper::Convert<A3>::getArg( &args[3], &ctx, 3 ),
+			IocshDeclWrapper::Convert<A4>::getArg( &args[4], &ctx, 4 ),
+			IocshDeclWrapper::Convert<A5>::getArg( &args[5], &ctx, 5 ),
+			IocshDeclWrapper::Convert<A6>::getArg( &args[6], &ctx, 6 ),
+			IocshDeclWrapper::Convert<A7>::getArg( &args[7], &ctx, 7 ),
 		);
 	}
 };
@@ -1145,15 +1304,15 @@ public:
 
 	template <type *func, bool PRINT> static void call(const iocshArgBuf *args)
 	{
-		IocshDeclWrapper::Context ctx;
+		IocshDeclWrapper::Context ctx( args, N );
 		IOCSH_DECL_WRAPPER_DO_CALL(
-			IocshDeclWrapper::Convert<A0>::getArg( &args[0], &ctx ),
-			IocshDeclWrapper::Convert<A1>::getArg( &args[1], &ctx ),
-			IocshDeclWrapper::Convert<A2>::getArg( &args[2], &ctx ),
-			IocshDeclWrapper::Convert<A3>::getArg( &args[3], &ctx ),
-			IocshDeclWrapper::Convert<A4>::getArg( &args[4], &ctx ),
-			IocshDeclWrapper::Convert<A5>::getArg( &args[5], &ctx ),
-			IocshDeclWrapper::Convert<A6>::getArg( &args[6], &ctx )
+			IocshDeclWrapper::Convert<A0>::getArg( &args[0], &ctx, 0 ),
+			IocshDeclWrapper::Convert<A1>::getArg( &args[1], &ctx, 1 ),
+			IocshDeclWrapper::Convert<A2>::getArg( &args[2], &ctx, 2 ),
+			IocshDeclWrapper::Convert<A3>::getArg( &args[3], &ctx, 3 ),
+			IocshDeclWrapper::Convert<A4>::getArg( &args[4], &ctx, 4 ),
+			IocshDeclWrapper::Convert<A5>::getArg( &args[5], &ctx, 5 ),
+			IocshDeclWrapper::Convert<A6>::getArg( &args[6], &ctx, 6 ),
 		);
 	}
 };
@@ -1179,14 +1338,14 @@ public:
 
 	template <type *func, bool PRINT> static void call(const iocshArgBuf *args)
 	{
-		IocshDeclWrapper::Context ctx;
+		IocshDeclWrapper::Context ctx( args, N );
 		IOCSH_DECL_WRAPPER_DO_CALL(
-			IocshDeclWrapper::Convert<A0>::getArg( &args[0], &ctx ),
-			IocshDeclWrapper::Convert<A1>::getArg( &args[1], &ctx ),
-			IocshDeclWrapper::Convert<A2>::getArg( &args[2], &ctx ),
-			IocshDeclWrapper::Convert<A3>::getArg( &args[3], &ctx ),
-			IocshDeclWrapper::Convert<A4>::getArg( &args[4], &ctx ),
-			IocshDeclWrapper::Convert<A5>::getArg( &args[5], &ctx )
+			IocshDeclWrapper::Convert<A0>::getArg( &args[0], &ctx, 0 ),
+			IocshDeclWrapper::Convert<A1>::getArg( &args[1], &ctx, 1 ),
+			IocshDeclWrapper::Convert<A2>::getArg( &args[2], &ctx, 2 ),
+			IocshDeclWrapper::Convert<A3>::getArg( &args[3], &ctx, 3 ),
+			IocshDeclWrapper::Convert<A4>::getArg( &args[4], &ctx, 4 ),
+			IocshDeclWrapper::Convert<A5>::getArg( &args[5], &ctx, 5 ),
 		);
 	}
 };
@@ -1211,13 +1370,13 @@ public:
 
 	template <type *func, bool PRINT> static void call(const iocshArgBuf *args)
 	{
-		IocshDeclWrapper::Context ctx;
+		IocshDeclWrapper::Context ctx( args, N );
 		IOCSH_DECL_WRAPPER_DO_CALL(
-			IocshDeclWrapper::Convert<A0>::getArg( &args[0], &ctx ),
-			IocshDeclWrapper::Convert<A1>::getArg( &args[1], &ctx ),
-			IocshDeclWrapper::Convert<A2>::getArg( &args[2], &ctx ),
-			IocshDeclWrapper::Convert<A3>::getArg( &args[3], &ctx ),
-			IocshDeclWrapper::Convert<A4>::getArg( &args[4], &ctx )
+			IocshDeclWrapper::Convert<A0>::getArg( &args[0], &ctx, 0 ),
+			IocshDeclWrapper::Convert<A1>::getArg( &args[1], &ctx, 1 ),
+			IocshDeclWrapper::Convert<A2>::getArg( &args[2], &ctx, 2 ),
+			IocshDeclWrapper::Convert<A3>::getArg( &args[3], &ctx, 3 ),
+			IocshDeclWrapper::Convert<A4>::getArg( &args[4], &ctx, 4 ),
 		);
 	}
 };
@@ -1242,12 +1401,12 @@ public:
 
 	template <type *func, bool PRINT> static void call(const iocshArgBuf *args)
 	{
-		IocshDeclWrapper::Context ctx;
+		IocshDeclWrapper::Context ctx( args, N );
 		IOCSH_DECL_WRAPPER_DO_CALL(
-			IocshDeclWrapper::Convert<A0>::getArg( &args[0], &ctx ),
-			IocshDeclWrapper::Convert<A1>::getArg( &args[1], &ctx ),
-			IocshDeclWrapper::Convert<A2>::getArg( &args[2], &ctx ),
-			IocshDeclWrapper::Convert<A3>::getArg( &args[3], &ctx )
+			IocshDeclWrapper::Convert<A0>::getArg( &args[0], &ctx, 0 ),
+			IocshDeclWrapper::Convert<A1>::getArg( &args[1], &ctx, 1 ),
+			IocshDeclWrapper::Convert<A2>::getArg( &args[2], &ctx, 2 ),
+			IocshDeclWrapper::Convert<A3>::getArg( &args[3], &ctx, 3 ),
 		);
 	}
 };
@@ -1272,11 +1431,11 @@ public:
 
 	template <type *func, bool PRINT> static void call(const iocshArgBuf *args)
 	{
-		IocshDeclWrapper::Context ctx;
+		IocshDeclWrapper::Context ctx( args, N );
 		IOCSH_DECL_WRAPPER_DO_CALL(
-			IocshDeclWrapper::Convert<A0>::getArg( &args[0], &ctx ),
-			IocshDeclWrapper::Convert<A1>::getArg( &args[1], &ctx ),
-			IocshDeclWrapper::Convert<A2>::getArg( &args[2], &ctx )
+			IocshDeclWrapper::Convert<A0>::getArg( &args[0], &ctx, 0 ),
+			IocshDeclWrapper::Convert<A1>::getArg( &args[1], &ctx, 1 ),
+			IocshDeclWrapper::Convert<A2>::getArg( &args[2], &ctx, 2 ),
 		);
 	}
 };
@@ -1301,10 +1460,10 @@ public:
 
 	template <type *func, bool PRINT> static void call(const iocshArgBuf *args)
 	{
-		IocshDeclWrapper::Context ctx;
+		IocshDeclWrapper::Context ctx( args, N );
 		IOCSH_DECL_WRAPPER_DO_CALL(
-			IocshDeclWrapper::Convert<A0>::getArg( &args[0], &ctx ),
-			IocshDeclWrapper::Convert<A1>::getArg( &args[1], &ctx )
+			IocshDeclWrapper::Convert<A0>::getArg( &args[0], &ctx, 0 ),
+			IocshDeclWrapper::Convert<A1>::getArg( &args[1], &ctx, 1 ),
 		);
 	}
 };
@@ -1330,9 +1489,9 @@ public:
 
 	template <type *func, bool PRINT> static void call(const iocshArgBuf *args)
 	{
-		IocshDeclWrapper::Context ctx;
+		IocshDeclWrapper::Context ctx( args, N );
 		IOCSH_DECL_WRAPPER_DO_CALL(
-			IocshDeclWrapper::Convert<A0>::getArg( &args[0], &ctx )
+			IocshDeclWrapper::Convert<A0>::getArg( &args[0], &ctx, 0 ),
 		);
 	}
 };

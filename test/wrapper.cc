@@ -341,7 +341,7 @@ public:
 		a->type = iocshArgInt;
 	}
 
-	static MyType & getArg( const iocshArgBuf *arg, Context *ctx )
+	static MyType & getArg( const iocshArgBuf *arg, Context *ctx, int argNo )
 	{
 		testPassed++;
 		return *ctx->make<MyType>( arg->ival );
