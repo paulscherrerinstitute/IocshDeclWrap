@@ -410,7 +410,7 @@ template <typename T, int USER> struct PrintFmts<T, double, USER> {
 template <typename T, int USER> struct PrintFmts<T, typename is_chrp<T>::type, USER> {
 	static const char **get()
 	{
-		static const char *r [] = { "%p ", "%s", 0 };
+		static const char *r [] = { "%p -> ", "%s", 0 };
 		return r;
 	}
 };
