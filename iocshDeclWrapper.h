@@ -139,6 +139,34 @@ template <> struct is_cplx< std::complex<long double> > {
 	static const char                *fmt() { return "%Lg j %Lg"; }
 };
 
+template <typename T> struct skipref {
+	typedef       T  type;
+	typedef const T  const_type;
+	typedef       T& ref_type;
+	typedef const T& const_ref_type;
+};
+
+template <typename T> struct skipref<const  T  > {
+	typedef       T  type;
+	typedef const T  const_type;
+	typedef       T& ref_type;
+	typedef const T& const_ref_type;
+};
+
+template <typename T> struct skipref<       T &> {
+	typedef       T  type;
+	typedef const T  const_type;
+	typedef       T& ref_type;
+	typedef const T& const_ref_type;
+};
+
+template <typename T> struct skipref<const  T &> {
+	typedef       T  type;
+	typedef const T  const_type;
+	typedef       T& ref_type;
+	typedef const T& const_ref_type;
+};
+
 template <typename T> struct is_const {
 	const static bool value = false;
 };
@@ -291,12 +319,20 @@ template <typename T> struct Reference<T&> {
  * as in hexadecimal.
  */
 
-template <typename T, typename R = T, int USER = 0> struct PrintFmts {
+template <typename T, typename R = T, int USER = 0> struct PrintFmts
+/*
+ * define to debug specializations - the compiler will tell you what it's
+ * looking for instead of using this fallback.
+ */
+#ifndef IOCSH_DECL_WRAPPER_PRINTFMTS_DEBUG
+{
 	static const char **get()
 	{
 		return 0;
 	}
-};
+}
+#endif
+;
 
 /*
  * Provide partial specializations for basic
@@ -439,7 +475,7 @@ template <typename T, int USER> struct PrintFmts<T *, typename is_chrp<T*>::fals
 template <typename T, typename R, int USER = 0> class PrinterBase {
 public:
 	static void print( typename Reference<R>::const_type r ) {
-		const char **fmts = PrintFmts<R,R>::get();
+		const char **fmts = PrintFmts<typename skipref<R>::type>::get();
 		if ( ! fmts ) {
 			errlogPrintf("<No print format for this return type implemented>\n");
 		} else {

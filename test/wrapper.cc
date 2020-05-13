@@ -296,7 +296,7 @@ const short &chr(const short &sp)
 	return sp;
 }
 
-short hr(short &sp)
+short &hr(short &sp)
 {
 	if ( 85 == sp )
 		testPassed++;
