@@ -3,12 +3,12 @@
 #include <epicsExit.h>
 #include <epicsThread.h>
 #include <epicsStdio.h>
-#include <errlog.h>
 #include <iocshDeclWrapper.h>
 #include <epicsExport.h>
 #include <string>
 #include <string.h>
 #include <complex>
+#include <stdio.h>
 
 /* run
  *  dc -e "`grep 'testPassed[\t]*[+][+]' wrapper.cc  | wc -l` `grep 'testPassed[\t]*[-][-]' wrapper.cc  | wc -l` - p"
@@ -409,13 +409,13 @@ std::complex<double> myComplex(std::complex<double> val)
 void testCheck()
 {
 	if ( 0 == testFailed && NUM_TESTS == testPassed ) {
-		errlogPrintf("All %d Tests PASSED\n", testPassed);
+		epicsStdoutPrintf("All %d Tests PASSED\n", testPassed);
 	} else {
 		if ( testFailed ) {
-			errlogPrintf("%d tests FAILED\n", testFailed);
+			epicsStdoutPrintf("%d tests FAILED\n", testFailed);
 		}
 		if ( NUM_TESTS != testPassed + testFailed ) {
-			errlogPrintf("%d tests MISSED\n", NUM_TESTS - testPassed - testFailed);
+			epicsStdoutPrintf("%d tests MISSED\n", NUM_TESTS - testPassed - testFailed);
 		}
 		epicsThreadSleep(0.5);
 		epicsExit(1);
