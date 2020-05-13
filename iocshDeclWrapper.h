@@ -8,6 +8,7 @@
 #endif
 
 #include <epicsString.h>
+#include <epicsStdio.h>
 #include <epicsExport.h>
 #include <errlog.h>
 #include <iocsh.h>
@@ -280,7 +281,6 @@ template <typename T> struct Reference<T&> {
 	typedef const T &const_type;
 };
 
-
 /*
  * For the default Printer implementation we
  * use specialized 'format strings'.
@@ -444,10 +444,10 @@ public:
 			errlogPrintf("<No print format for this return type implemented>\n");
 		} else {
 			while ( *fmts ) {
-				errlogPrintf( *fmts, r );
+				epicsStdoutPrintf( *fmts, r );
 				fmts++;
 			}
-			errlogPrintf("\n");
+			epicsStdoutPrintf("\n");
 		}
 	}
 };
@@ -463,10 +463,10 @@ public:
 			errlogPrintf("<No print format for this return type implemented>\n");
 		} else {
 			while ( *fmts ) {
-				errlogPrintf( *fmts, r );
+				epicsStdoutPrintf( *fmts, r );
 				fmts++;
 			}
-			errlogPrintf("\n");
+			epicsStdoutPrintf("\n");
 		}
 	}
 };
@@ -484,7 +484,7 @@ template <typename T, int USER> class PrinterBase< T, typename is_cplx< T >::typ
 public:
 	static void print( const std::complex<T> &r )
 	{
-		errlogPrintf("%.10Lg J %.10Lg\n", (long double)r.real(), (long double)r.imag());
+		epicsStdoutPrintf("%.10Lg J %.10Lg\n", (long double)r.real(), (long double)r.imag());
 	}
 };
 
@@ -682,10 +682,10 @@ public:
 			ContextElBase *el = ctx->getArg( i );
 			if ( el && ! el->isConst() ) {
 				if ( ! headerPrinted ) {
-					errlogPrintf("Mutable arguments after execution:\n");
+					epicsStdoutPrintf("Mutable arguments after execution:\n");
 					headerPrinted = true;
 				}
-				errlogPrintf("arg[%i]: ", i); el->print();
+				epicsStdoutPrintf("arg[%i]: ", i); el->print();
 			}
 		}
 	}

@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <epicsExit.h>
 #include <epicsThread.h>
+#include <epicsStdio.h>
 #include <errlog.h>
 #include <iocshDeclWrapper.h>
 #include <epicsExport.h>
@@ -455,7 +456,7 @@ public:
 	static void print(const MyType & r)
 	{
 		if ( 44 == r() ) testPassed++; else testFailed++;
-		errlogPrintf("Printer for 'MyType' : %i\n", r());
+		epicsStdoutPrintf("Printer for 'MyType' : %i\n", r());
 	}
 };
 
@@ -470,7 +471,7 @@ public:
 		// this should not be called
 		testFailed++;
 		testPassed--;
-		errlogPrintf("Printer for 'testNonPrinting' : %i\n", r());
+		epicsStdoutPrintf("Printer for 'testNonPrinting' : %i\n", r());
 	}
 };
 
@@ -484,7 +485,7 @@ public:
 	static void print(const int &v)
 	{
 		if (321 == v) testPassed++; else testFailed++;
-		errlogPrintf("Printer for myFuncInt (v==321) ? %s\n", (321==v) ? "TRUE" : "FALSE" );
+		epicsStdoutPrintf("Printer for myFuncInt (v==321) ? %s\n", (321==v) ? "TRUE" : "FALSE" );
 	}
 };
 
@@ -522,11 +523,11 @@ public:
 		if ( ! fmts) {
 			testFailed++;
 		} else {
-			errlogPrintf("My Complex Printer ");
-			errlogPrintf( fmts[0], r.real());
-			errlogPrintf(" J ");
-			errlogPrintf( fmts[0], r.imag());
-			errlogPrintf("\n");
+			epicsStdoutPrintf("My Complex Printer ");
+			epicsStdoutPrintf( fmts[0], r.real());
+			epicsStdoutPrintf(" J ");
+			epicsStdoutPrintf( fmts[0], r.imag());
+			epicsStdoutPrintf("\n");
 			testPassed++;
 		}
 	}
@@ -541,11 +542,11 @@ public:
 		if ( ! fmts) {
 			testFailed++;
 		} else {
-			errlogPrintf("My Complex Printer ");
-			errlogPrintf( fmts[0], r.real());
-			errlogPrintf(" J ");
-			errlogPrintf( fmts[0], r.imag());
-			errlogPrintf("\n");
+			epicsStdoutPrintf("My Complex Printer ");
+			epicsStdoutPrintf( fmts[0], r.real());
+			epicsStdoutPrintf(" J ");
+			epicsStdoutPrintf( fmts[0], r.imag());
+			epicsStdoutPrintf("\n");
 			testPassed++;
 		}
 	}
