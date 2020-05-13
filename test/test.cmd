@@ -83,22 +83,22 @@ c10 0 1 2 3 4 5 6 7 8 9
 ##=##my STRING myString
 ##r##0x[0-9a-f]+ [-][>] myString
 ##=##Mutable arguments after execution:
-##r##arg[[]0[]]: 0x[0-9a-f]+ [-][>] myString
+##r##arg[\[]0[]]: 0x[0-9a-f]+ [-][>] myString
 myString("myString")
 ##=##my STRINGr myStringr
 ##r##0x[0-9a-f]+ [-][>] myStringr
 ##=##Mutable arguments after execution:
-##r##arg[[]0[]]: 0x[0-9a-f]+ [-][>] myStringr
+##r##arg[\[]0[]]: 0x[0-9a-f]+ [-][>] myStringr
 myStringr("myStringr")
 ##=##my const STRING mycString
 ##r##0x[0-9a-f]+ [-][>] mycString
 ##=##Mutable arguments after execution:
-##r##arg[[]0[]]: 0x[0-9a-f]+ [-][>] mycString
+##r##arg[\[]0[]]: 0x[0-9a-f]+ [-][>] mycString
 mycString("mycString")
 ##=##my STRINGp myStringp
 ##r##0x[0-9a-f]+ [-][>] myStringp
 ##=##Mutable arguments after execution:
-##r##arg[[]0[]]: 0x[0-9a-f]+ [-][>] myStringp
+##r##arg[\[]0[]]: 0x[0-9a-f]+ [-][>] myStringp
 myStringp("myStringp")
 ##=##my cSTRINGp mycStringp
 ##r##0x[0-9a-f]+ [-][>] mycStringp
@@ -106,7 +106,7 @@ mycStringp("mycStringp")
 ##=##From myHello: myHello
 ##r##0x[0-9a-f]+ [-][>] myHello
 ##=##Mutable arguments after execution:
-##r##arg[[]0[]]: 0x[0-9a-f]+ [-][>] myHello
+##r##arg[\[]0[]]: 0x[0-9a-f]+ [-][>] myHello
 myHello("myHello")
 ##=##From mycHello: mycHello
 ##r##0x[0-9a-f]+ [-][>] mycHello
@@ -156,16 +156,15 @@ cfp(44.55)
 fp(45.66)
 ##r##0x[0-9a-f]+ [-][>] haggaloo
 ##=##Mutable arguments after execution:
-##r##arg[[]0[]]: 0x[0-9a-f]+ [-][>] haggaloo
+##r##arg[\[]0[]]: 0x[0-9a-f]+ [-][>] haggaloo
 sr("sr_foo")
 ##r##0x[0-9a-f]+ [-][>] csr_foo
 csr("csr_foo")
 ##r##0x[0-9a-f]+ [-][>] haggaloo
 ##=##Mutable arguments after execution:
-##r##arg[[]0[]]: 0x[0-9a-f]+ [-][>] haggaloo
+##r##arg[\[]0[]]: 0x[0-9a-f]+ [-][>] haggaloo
 sp("sp_foo")
 ##r##0x[0-9a-f]+ [-][>] csp_foo
 csp("csp_foo")
 #####
 testCheck()
-exit
