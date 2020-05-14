@@ -1,15 +1,20 @@
 ifndef PSIMAKEFILE
 PSIMAKEFILE=/ioc/tools/driver.makefile
 endif
+
+
 include $(PSIMAKEFILE)
+
+MODULE = iocshDeclWrapperTest
+
+include $(EPICS_MODULES)/makeUtils/latest/utils.mk
+
 
 EXCLUDE_VERSIONS = 3.13
 BUILDCLASSES += Linux
 
 PYTHON=python3
 IOCSH=./iocshWrapper.sh
-
-MODULE = iocshDeclWrapperTest
 
 # Always use local version
 IocshDeclWrapper_VERSION=dummyDontUse
@@ -43,18 +48,29 @@ hack.d:
 rmhack:
 	$(RM) hack.d
 
-.PHONY: rmhack test.log
+LOG_DIR=O.test
+TESTLOG=$(addprefix $(addsuffix /,$(LOG_DIR)),test.log)
 
-test.log: build
+# always re-run the test
+.PHONY: rmhack $(TESTLOG)
 
-test.log:
+# avoid the 'clean' rule because it differs (::/:) between
+# epics versions and 'driver.makefile' (::). Create a
+# O. directory which is cleaned by the standard rules.
+
+$(TESTLOG): build $(LOG_DIR)
+
+O.%:
+	mkdir -p $@
+
+$(TESTLOG):
 	$(RM) $@
-	echo exit | $(IOCSH) -r iocshDeclWrapperTest -c iocInit -c 'eltc 0' test.cmd > $@
+	echo exit | $(IOCSH) $(addprefix -,$(TEST_EPICS)) -r iocshDeclWrapperTest -c iocInit -c 'eltc 0' test.cmd > $@
 
 
 # Note: iocsh always terminates with a SIGTERM to itself;
 #       therefore the test seems to fail even if it passes :-(
-test: test.log
+test: $(TESTLOG)
 	$(PYTHON) checkOutput.py < $<
 	echo "TEST PASSED"
 
@@ -62,6 +78,3 @@ pri:
 	echo MODULE_LOCATION $(MODULE_LOCATION)
 	echo INSTALL_DBD     $(INSTALL_DBD)
 	echo INSTALL_REV     $(INSTALL_REV)
-
-clean::
-	$(RM) test.log
