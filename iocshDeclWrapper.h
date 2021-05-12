@@ -1249,20 +1249,11 @@ template <typename RR, RR *p, bool PRINT=true> void call(const iocshArgBuf *args
 	dispatch<PRINT>( p, args, makeGuesser<RR>( p ).template getPrinter<p>(), makeGuesser<RR>( p ).template getArgPrinter<p>() );
 }
 
-}
-
-#define IOCSH_FUNC_WRAP(x,argHelps...) do {                                         \
-	using IocshDeclWrapper::buildArgs;                                              \
-	using IocshDeclWrapper::call;                                                   \
-	iocshRegister( buildArgs( #x, x, { argHelps } ), call<decltype(x), x> );        \
+#define IOCSH_FUNC_REGISTER_WRAPPER(x,signature,nm,doPrint,argHelps...) do {                     \
+	using IocshDeclWrapper::buildArgs;                                                       \
+	using IocshDeclWrapper::call;                                                            \
+	iocshRegister( buildArgs( nm, x, { argHelps } ), call<decltype(x), x, doPrint> );        \
   } while (0)
-
-#define IOCSH_FUNC_WRAP_QUIET(x,argHelps...) do {                                   \
-	using IocshDeclWrapper::buildArgs;                                              \
-	using IocshDeclWrapper::call;                                                   \
-	iocshRegister( buildArgs( #x, x, { argHelps } ), call<decltype(x), x, false> ); \
-  } while (0)
-
 
 #else  /* __cplusplus < 201103L */
 
@@ -1371,8 +1362,8 @@ done:
 		}                                                                    \
 	} while (0)
 
-template <typename R, typename A0, typename A1, typename A2, typename A3, typename A4,
-                      typename A5, typename A6, typename A7, typename A8, typename A9>
+template <typename R, typename A0=void, typename A1=void, typename A2=void, typename A3=void, typename A4=void,
+                      typename A5=void, typename A6=void, typename A7=void, typename A8=void, typename A9=void>
 class Caller
 {
 public:
@@ -1735,6 +1726,24 @@ public:
 	}
 };
 
+/* A special trick to let the user specify overloaded functions. We want to do this
+ * with a final macro:
+ *   #define _WRAP( fun, overload_args, name, help... )
+ * Because the pre-processor requires parentheses around anything containing commas
+ * the macro must be expanded like this:
+ *
+ *   _WRAP( myFunc, (int, char*), "myFunc_1" )
+ *
+ * The following templates allow us to get rid of the parentheses and use the type
+ * signatures...
+ */
+template <typename T> struct DropBraces;
+
+/* First the specialization for T=void which auto-derives the types; this is used
+ * when a function is not overloaded
+ */
+template <> struct DropBraces<void> {
+
 /* Function templates which use argument deduction to find the argument and return types
  * of function 'f'.
  * Return a properly parametrized Caller<> object. This allows us to infer
@@ -1753,74 +1762,191 @@ public:
  */
 template <typename R, typename A0, typename A1, typename A2, typename A3, typename A4,
                       typename A5, typename A6, typename A7, typename A8, typename A9>
-Caller<R,A0,A1,A2,A3,A4,A5,A6,A7,A8,A9> makeCaller(R (*f)(A0,A1,A2,A3,A4,A5,A6,A7,A8,A9))
+static Caller<R,A0,A1,A2,A3,A4,A5,A6,A7,A8,A9> makeCaller(R (*f)(A0,A1,A2,A3,A4,A5,A6,A7,A8,A9))
 {
 	return Caller<R,A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>();
 }
 
 template <typename R, typename A0, typename A1, typename A2, typename A3, typename A4,
                       typename A5, typename A6, typename A7, typename A8>
-Caller<R,A0,A1,A2,A3,A4,A5,A6,A7,A8,void> makeCaller(R (*f)(A0,A1,A2,A3,A4,A5,A6,A7,A8))
+static Caller<R,A0,A1,A2,A3,A4,A5,A6,A7,A8,void> makeCaller(R (*f)(A0,A1,A2,A3,A4,A5,A6,A7,A8))
 {
 	return Caller<R,A0,A1,A2,A3,A4,A5,A6,A7,A8,void>();
 }
 
 template <typename R, typename A0, typename A1, typename A2, typename A3, typename A4,
                       typename A5, typename A6, typename A7>
-Caller<R,A0,A1,A2,A3,A4,A5,A6,A7,void,void> makeCaller(R (*f)(A0,A1,A2,A3,A4,A5,A6,A7))
+static Caller<R,A0,A1,A2,A3,A4,A5,A6,A7,void,void> makeCaller(R (*f)(A0,A1,A2,A3,A4,A5,A6,A7))
 {
 	return Caller<R,A0,A1,A2,A3,A4,A5,A6,A7,void,void>();
 }
 
 template <typename R, typename A0, typename A1, typename A2, typename A3, typename A4,
                       typename A5, typename A6>
-Caller<R,A0,A1,A2,A3,A4,A5,A6,void,void,void> makeCaller(R (*f)(A0,A1,A2,A3,A4,A5,A6))
+static Caller<R,A0,A1,A2,A3,A4,A5,A6,void,void,void> makeCaller(R (*f)(A0,A1,A2,A3,A4,A5,A6))
 {
 	return Caller<R,A0,A1,A2,A3,A4,A5,A6,void,void,void>();
 }
 
 template <typename R, typename A0, typename A1, typename A2, typename A3, typename A4,
                       typename A5>
-Caller<R,A0,A1,A2,A3,A4,A5,void,void,void,void> makeCaller(R (*f)(A0,A1,A2,A3,A4,A5))
+static Caller<R,A0,A1,A2,A3,A4,A5,void,void,void,void> makeCaller(R (*f)(A0,A1,A2,A3,A4,A5))
 {
 	return Caller<R,A0,A1,A2,A3,A4,A5,void,void,void,void>();
 }
 
 template <typename R, typename A0, typename A1, typename A2, typename A3, typename A4>
-Caller<R,A0,A1,A2,A3,A4,void,void,void,void,void> makeCaller(R (*f)(A0,A1,A2,A3,A4))
+static Caller<R,A0,A1,A2,A3,A4,void,void,void,void,void> makeCaller(R (*f)(A0,A1,A2,A3,A4))
 {
 	return Caller<R,A0,A1,A2,A3,A4,void,void,void,void,void>();
 }
 
 template <typename R, typename A0, typename A1, typename A2, typename A3>
-Caller<R,A0,A1,A2,A3,void,void,void,void,void,void> makeCaller(R (*f)(A0,A1,A2,A3))
+static Caller<R,A0,A1,A2,A3,void,void,void,void,void,void> makeCaller(R (*f)(A0,A1,A2,A3))
 {
 	return Caller<R,A0,A1,A2,A3,void,void,void,void,void,void>();
 }
 
 template <typename R, typename A0, typename A1, typename A2>
-Caller<R,A0,A1,A2,void,void,void,void,void,void,void> makeCaller(R (*f)(A0,A1,A2))
+static Caller<R,A0,A1,A2,void,void,void,void,void,void,void> makeCaller(R (*f)(A0,A1,A2))
 {
 	return Caller<R,A0,A1,A2,void,void,void,void,void,void,void>();
 }
 
 template <typename R, typename A0, typename A1>
-Caller<R,A0,A1,void,void,void,void,void,void,void,void> makeCaller(R (*f)(A0,A1))
+static Caller<R,A0,A1,void,void,void,void,void,void,void,void> makeCaller(R (*f)(A0,A1))
 {
 	return Caller<R,A0,A1,void,void,void,void,void,void,void,void>();
 }
 
 template <typename R, typename A0>
-Caller<R,A0,void,void,void,void,void,void,void,void,void> makeCaller(R (*f)(A0))
+static Caller<R,A0,void,void,void,void,void,void,void,void,void> makeCaller(R (*f)(A0))
 {
 	return Caller<R,A0,void,void,void,void,void,void,void,void,void>();
 }
 
 template <typename R>
-Caller<R,void,void,void,void,void,void,void,void,void,void> makeCaller(R (*f)(void))
+static Caller<R,void,void,void,void,void,void,void,void,void,void> makeCaller(R (*f)(void))
 {
 	return Caller<R,void,void,void,void,void,void,void,void,void,void>();
 }
+};
+
+/* Now the trick to get rid of parenthesis: */
+template <typename T, typename A0, typename A1, typename A2, typename A3, typename A4,
+                      typename A5, typename A6, typename A7, typename A8, typename A9>
+struct DropBraces<T(A0,A1,A2,A3,A4,A5,A6,A7,A8,A9)> {
+	template <typename R>
+	static Caller<R,A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>
+	makeCaller(R (*f)(A0,A1,A2,A3,A4,A5,A6,A7,A8,A9))
+	{
+		return Caller<R,A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>();
+	}
+};
+
+template <typename T, typename A0, typename A1, typename A2, typename A3, typename A4,
+                      typename A5, typename A6, typename A7, typename A8>
+struct DropBraces<T(A0,A1,A2,A3,A4,A5,A6,A7,A8)> {
+	template <typename R>
+	static Caller<R,A0,A1,A2,A3,A4,A5,A6,A7,A8>
+	makeCaller(R (*f)(A0,A1,A2,A3,A4,A5,A6,A7,A8))
+	{
+		return Caller<R,A0,A1,A2,A3,A4,A5,A6,A7,A8>();
+	}
+};
+
+template <typename T, typename A0, typename A1, typename A2, typename A3, typename A4,
+                      typename A5, typename A6, typename A7>
+struct DropBraces<T(A0,A1,A2,A3,A4,A5,A6,A7)> {
+	template <typename R>
+	static Caller<R,A0,A1,A2,A3,A4,A5,A6,A7>
+	makeCaller(R (*f)(A0,A1,A2,A3,A4,A5,A6,A7))
+	{
+		return Caller<R,A0,A1,A2,A3,A4,A5,A6,A7>();
+	}
+};
+
+template <typename T, typename A0, typename A1, typename A2, typename A3, typename A4,
+                      typename A5, typename A6>
+struct DropBraces<T(A0,A1,A2,A3,A4,A5,A6)> {
+	template <typename R>
+	static Caller<R,A0,A1,A2,A3,A4,A5,A6>
+	makeCaller(R (*f)(A0,A1,A2,A3,A4,A5,A6))
+	{
+		return Caller<R,A0,A1,A2,A3,A4,A5,A6>();
+	}
+};
+
+template <typename T, typename A0, typename A1, typename A2, typename A3, typename A4,
+                      typename A5>
+struct DropBraces<T(A0,A1,A2,A3,A4,A5)> {
+	template <typename R>
+	static Caller<R,A0,A1,A2,A3,A4,A5>
+	makeCaller(R (*f)(A0,A1,A2,A3,A4,A5))
+	{
+		return Caller<R,A0,A1,A2,A3,A4,A5>();
+	}
+};
+
+template <typename T, typename A0, typename A1, typename A2, typename A3, typename A4>
+struct DropBraces<T(A0,A1,A2,A3,A4)> {
+	template <typename R>
+	static Caller<R,A0,A1,A2,A3,A4>
+	makeCaller(R (*f)(A0,A1,A2,A3,A4))
+	{
+		return Caller<R,A0,A1,A2,A3,A4>();
+	}
+};
+
+template <typename T, typename A0, typename A1, typename A2, typename A3>
+struct DropBraces<T(A0,A1,A2,A3)> {
+	template <typename R>
+	static Caller<R,A0,A1,A2,A3>
+	makeCaller(R (*f)(A0,A1,A2,A3))
+	{
+		return Caller<R,A0,A1,A2,A3>();
+	}
+};
+
+template <typename T, typename A0, typename A1, typename A2>
+struct DropBraces<T(A0,A1,A2)> {
+	template <typename R>
+	static Caller<R,A0,A1,A2>
+	makeCaller(R (*f)(A0,A1,A2))
+	{
+		return Caller<R,A0,A1,A2>();
+	}
+};
+
+template <typename T, typename A0, typename A1>
+struct DropBraces<T(A0,A1)> {
+	template <typename R>
+	static Caller<R,A0,A1>
+	makeCaller(R (*f)(A0,A1))
+	{
+		return Caller<R,A0,A1>();
+	}
+};
+
+template <typename T, typename A0>
+struct DropBraces<T(A0)> {
+	template <typename R>
+	static Caller<R,A0>
+	makeCaller(R (*f)(A0))
+	{
+		return Caller<R,A0>();
+	}
+};
+
+template <typename T>
+struct DropBraces<T(void)> {
+	template <typename R>
+	static Caller<R>
+	makeCaller(R (*f)(void))
+	{
+		return Caller<R>();
+	}
+};
 
 #undef IOCSH_DECL_WRAPPER_DO_CALL
 
@@ -1828,20 +1954,12 @@ Caller<R,void,void,void,void,void,void,void,void,void,void> makeCaller(R (*f)(vo
 
 #define IOCSH_FUNC_WRAP_MAX_ARGS 10
 
-#define IOCSH_FUNC_WRAP(x,argHelps...) do {                                                 \
+#define IOCSH_FUNC_REGISTER_WRAPPER(x,signature,nm,doPrint,argHelps...) do {                    \
 	const char *argNames[IOCSH_FUNC_WRAP_MAX_ARGS + 1] = { argHelps };                      \
 	using IocshDeclWrapper::buildArgs;                                                      \
-	using IocshDeclWrapper::makeCaller;                                                     \
-	iocshRegister( buildArgs( makeCaller(x), #x, argNames ), makeCaller(x).call<x,true> );  \
+	using IocshDeclWrapper::DropBraces;                                                     \
+	iocshRegister( buildArgs( DropBraces<void signature>::makeCaller(x), nm, argNames ), DropBraces<void signature>::makeCaller(x).call<x,doPrint> );  \
 	} while (0)
-
-#define IOCSH_FUNC_WRAP_QUIET(x,argHelps...) do {                                           \
-	const char *argNames[IOCSH_FUNC_WRAP_MAX_ARGS + 1] = { argHelps };                      \
-	using IocshDeclWrapper::buildArgs;                                                      \
-	using IocshDeclWrapper::makeCaller;                                                     \
-	iocshRegister( buildArgs( makeCaller(x), #x, argNames ), makeCaller(x).call<x,false> ); \
-	} while (0)
-
 
 #endif /* __cplusplus >= 201103L */
 
@@ -1851,5 +1969,10 @@ static void registrarName() \
   wrappers \
 } \
 epicsExportRegistrar( registrarName ); \
+
+/* Convenience macros */
+#define IOCSH_FUNC_WRAP_OVLD( x, signature, nm, argHelps...) IOCSH_FUNC_REGISTER_WRAPPER(x, signature, nm, true,  argHelps)
+#define IOCSH_FUNC_WRAP(      x,                argHelps...) IOCSH_FUNC_REGISTER_WRAPPER(x,          , #x, true,  argHelps)
+#define IOCSH_FUNC_WRAP_QUIET(x,                argHelps...) IOCSH_FUNC_REGISTER_WRAPPER(x,          , #x, false, argHelps)
 
 #endif

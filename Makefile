@@ -10,6 +10,8 @@ BUILDCLASSES += Linux
 
 HEADERS += iocshDeclWrapper.h
 
+SOURCES=-none-
+
 test: install
 	$(MAKE) -C test test
 
