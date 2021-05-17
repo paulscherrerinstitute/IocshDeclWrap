@@ -222,7 +222,7 @@ create a new `std::string` which must persist until the user function returns:
          /*
           * 'make' creates a new string and attaches it to the context
           * 'argNo' tells us which argument we are converting.
-          *  This can is used for printing arguments that were
+          *  This can be used for printing arguments that were
           *  possibly modified by the user function (pointer/reference
           *  arguments to non-const objects).
           */
@@ -373,6 +373,37 @@ Summarizing the purpose of the multiple print-related templates:
       to handle the specific type.
 - If you need a special `print` method specifically for your user-
   function then you should specialize `Printer` for your function.
+
+## Overloaded Functions
+The templates support overloaded functions. However, you cannot use the
+simple `IOCSH_FUNC_WRAP()` macro but you must use
+
+     IOCSH_FUNC_WRAP_OVLD( func, signature, name, argHelps... )
+
+instead. `func` is the name of the function you want to wrap and
+`signature` is the list of arguments that identifies the overloaded
+variant you want to wrap. Since this list may contain commas it must be
+enclosed in parenthesis. E.g.:
+
+     IOCSH_FUNC_WRAP( myFunction, (int, const char*), "myFunction" );
+
+(the parenthesis must be present even if your function has only one
+or no argument.) Because `iocsh` does not support overloading functions
+you must always specify the  `name` that `iocsh` shall use to identify
+your wrapped function. If the `signature` is empty then it is automatically
+resolved (which fails if the function is overloaded). In fact, the
+`IOCSH_FUNC_WRAP(func,argHelps..)` macro is just a shorthand for
+
+     IOCSH_FUNC_WRAP( func, , #func, argHelps )
+
+and even `IOCSH_FUNC_WRAP_OVLD()` is defined in terms of a yet more
+general macro
+
+     IOCSH_FUNC_REGISTER_WRAPPER( func, signature, name, doPrintResult, argHelps... )
+
+which takes an additional argument `doPrintResult` which may be `true` or `false`
+and which defines whether `iocsh` should print the return value (and modified
+arguments) of your functions.
 
 ## Examples
 
