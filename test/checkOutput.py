@@ -2,7 +2,7 @@
 import re
 import sys
 
-expectedCommands = 47
+expectedCommands = 49
 
 separator=re.compile("^#####\n$")
 comment  =re.compile("^[ \t]*[#][^#].*")

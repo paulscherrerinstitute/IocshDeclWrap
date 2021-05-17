@@ -166,5 +166,9 @@ csr("csr_foo")
 sp("sp_foo")
 ##r##0x[0-9a-f]+ [-][>] csp_foo
 csp("csp_foo")
+##=##Overloaded function 'ovld(int 22, int 33)'
+ovldInt 22 33
+##=##Overloaded function 'ovld(overloaded)'
+ovldStr overloaded
 #####
 testCheck()

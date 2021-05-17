@@ -14,7 +14,7 @@
  *  dc -e "`grep 'testPassed[\t]*[+][+]' wrapper.cc  | wc -l` `grep 'testPassed[\t]*[-][-]' wrapper.cc  | wc -l` - p"
  * over this file
  */
-#define NUM_TESTS 37
+#define NUM_TESTS 39
 
 static int testFailed = 0;
 static int testPassed = 0;
@@ -422,6 +422,19 @@ void testCheck()
 	}
 }
 
+void ovld(int a1, int a2)
+{
+	if ( 22 != a1 || 33 != a2) testFailed++; else testPassed++;
+	printf("Overloaded function 'ovld(int %i, int %i)'\n", a1, a2);
+}
+
+void ovld(const char *a)
+{
+	if ( strcmp(a,"overloaded") ) testFailed++; else testPassed++;
+	printf("Overloaded function 'ovld(%s)'\n", a);
+}
+
+
 };
 
 namespace IocshDeclWrapper {
@@ -599,6 +612,8 @@ IOCSH_FUNC_WRAP_REGISTRAR(wrapperRegister,
 	IOCSH_FUNC_WRAP( chp        );
 	IOCSH_FUNC_WRAP( fp         );
 	IOCSH_FUNC_WRAP( cfp        );
+	IOCSH_FUNC_WRAP_OVLD( ovld, (int,    int), "ovldInt" );
+	IOCSH_FUNC_WRAP_OVLD( ovld, (const char*), "ovldStr" );
 )
 
 epicsExportAddress(int, testPassed);

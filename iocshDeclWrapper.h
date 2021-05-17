@@ -1142,38 +1142,84 @@ public:
 
 namespace IocshDeclWrapper {
 
-/*
- * Build a iocshFuncDef with associated iocArg structs.
- * If we were to wrap huge masses of user functions then
- * we could keep a cache of most used iocArgs (same epics type,
- * same help string) around but ATM we don't bother...
+/* A special trick to let the user specify overloaded functions. We want to do this
+ * with a final macro:
+ *   #define _WRAP( fun, overload_args, name, help... )
+ * Because the pre-processor requires parentheses around anything containing commas
+ * the macro must be expanded like this:
+ *
+ *   _WRAP( myFunc, (int, char*), "myFunc_1" )
+ *
+ * The following templates allow us to get rid of the parentheses and use the type
+ * signatures...
  */
-template <typename R, typename ...A>
-iocshFuncDef  *buildArgs( const char *fname, R (*f)(A...), std::initializer_list<const char *> argNames )
-{
-	std::initializer_list<const char*>::const_iterator it;
+template <typename T> struct DropBraces;
 
-	FuncDef     funcDef( fname, sizeof...(A) );
-	// use array initializer to ensure order of execution
-	iocshArg   *argp[  ] = { (makeArg<A>())... };
-	if ( sizeof...(A) != funcDef.getNargs() ) {
-		throw std::runtime_error("IocshDeclWrapper: internal error - number of argument mismatch");
+/* First the specialization for T=void which auto-derives the types; this is used
+ * when a function is not overloaded
+ */
+template <> struct DropBraces<void> {
+
+	template <typename R, typename ...A> struct TypeHelper {
+		typedef R (FuncType)(A...);
+	};
+
+	template <typename R, typename ...A>
+	static TypeHelper<R,A...> type(R (*f)(A...))
+	{
+		return TypeHelper<R,A...>();
 	}
-	it              = argNames.begin();
-	for ( int i = 0; i < funcDef.getNargs(); i++ ) {
-		if ( it != argNames.end() ) {
-			if (*it) {
-				argp[i]->name = *it;
+
+	/*
+	 * Build a iocshFuncDef with associated iocArg structs.
+	 * If we were to wrap huge masses of user functions then
+	 * we could keep a cache of most used iocArgs (same epics type,
+	 * same help string) around but ATM we don't bother...
+	 */
+	template <typename R, typename ...A>
+	static iocshFuncDef  *buildArgs( const char *fname, R (*f)(A...), std::initializer_list<const char *> argNames )
+	{
+		std::initializer_list<const char*>::const_iterator it;
+
+		FuncDef     funcDef( fname, sizeof...(A) );
+		// use array initializer to ensure order of execution
+		iocshArg   *argp[] = { (makeArg<A>())... };
+		if ( sizeof...(A) != funcDef.getNargs() ) {
+			throw std::runtime_error("IocshDeclWrapper: internal error - number of argument mismatch");
+		}
+		it              = argNames.begin();
+		for ( int i = 0; i < funcDef.getNargs(); i++ ) {
+			if ( it != argNames.end() ) {
+				if (*it) {
+					argp[i]->name = *it;
+				}
+				++it;
 			}
-			++it;
+			if ( argp[i]->name ) {
+				argp[i]->name = epicsStrDup( argp[i]->name );
+			}
+			funcDef.setArg(i, argp[i]);
 		}
-		if ( argp[i]->name ) {
-			argp[i]->name = epicsStrDup( argp[i]->name );
-		}
-		funcDef.setArg(i, argp[i]);
+		return funcDef.release();
 	}
-	return funcDef.release();
-}
+};
+
+/* Specialization used when we are given an explicit signature
+ */
+template <typename T, typename ...SIG> struct DropBraces<T(SIG...)> {
+
+	template <typename R>
+	static DropBraces<void>::TypeHelper<R,SIG...> type(R (*f)(SIG...))
+	{
+		return DropBraces<void>::TypeHelper<R, SIG...>();
+	}
+
+	template <typename R>
+	static iocshFuncDef  *buildArgs( const char *fname, R (*f)(SIG...), std::initializer_list<const char *> argNames )
+	{
+		return DropBraces<void>::buildArgs<R, SIG...>( fname, f, argNames );
+	}
+};
 
 /*
  * Helper struct to build a parameter pack of integers for indexing
@@ -1255,9 +1301,9 @@ template <typename RR, RR *p, bool PRINT=true> void call(const iocshArgBuf *args
 }
 
 #define IOCSH_FUNC_REGISTER_WRAPPER(x,signature,nm,doPrint,argHelps...) do {                     \
-	using IocshDeclWrapper::buildArgs;                                                       \
+	using IocshDeclWrapper::DropBraces;                                                      \
 	using IocshDeclWrapper::call;                                                            \
-	iocshRegister( buildArgs( nm, x, { argHelps } ), call<decltype(x), x, doPrint> );        \
+	iocshRegister( DropBraces<void signature>::buildArgs( nm, x, { argHelps } ), call<decltype(DropBraces<void signature>::type(x))::FuncType, x, doPrint> );        \
   } while (0)
 
 #else  /* __cplusplus < 201103L */
