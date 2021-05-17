@@ -1155,7 +1155,10 @@ iocshFuncDef  *buildArgs( const char *fname, R (*f)(A...), std::initializer_list
 
 	FuncDef     funcDef( fname, sizeof...(A) );
 	// use array initializer to ensure order of execution
-	iocshArg   *argp[ funcDef.getNargs() ] = { (makeArg<A>())... };
+	iocshArg   *argp[  ] = { (makeArg<A>())... };
+	if ( sizeof...(A) != funcDef.getNargs() ) {
+		throw std::runtime_error("IocshDeclWrapper: internal error - number of argument mismatch");
+	}
 	it              = argNames.begin();
 	for ( int i = 0; i < funcDef.getNargs(); i++ ) {
 		if ( it != argNames.end() ) {
