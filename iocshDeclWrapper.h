@@ -1252,6 +1252,8 @@ template <typename RR, RR *p, bool PRINT=true> void call(const iocshArgBuf *args
 	dispatch<PRINT>( p, args, makeGuesser<RR>( p ).template getPrinter<p>(), makeGuesser<RR>( p ).template getArgPrinter<p>() );
 }
 
+}
+
 #define IOCSH_FUNC_REGISTER_WRAPPER(x,signature,nm,doPrint,argHelps...) do {                     \
 	using IocshDeclWrapper::buildArgs;                                                       \
 	using IocshDeclWrapper::call;                                                            \
