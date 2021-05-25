@@ -381,7 +381,7 @@ simple `IOCSH_FUNC_WRAP()` macro but you must use
      IOCSH_FUNC_WRAP_OVLD( func, signature, name, argHelps... )
 
 instead. `func` is the name of the function you want to wrap and
-`signature` is the list of arguments that identifies the overloaded
+`signature` is the list of argument types that identifies the overloaded
 variant you want to wrap. Since this list may contain commas it must be
 enclosed in parenthesis. E.g.:
 
