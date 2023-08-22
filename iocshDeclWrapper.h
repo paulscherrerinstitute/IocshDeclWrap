@@ -1287,7 +1287,11 @@ dispatch(R (*f)(A...), const iocshArgBuf *args, typename EvalResult<R>::PrinterT
 		}
 	} catch ( ConversionError &e ) {
 		errlogPrintf( "Error: Invalid Argument -- %s\n", e.what() );
-	}
+	} catch ( std::exception &e ) {
+		errlogPrintf( "Error: Exception -- %s\n", e.what() );
+	} catch ( ... ) {
+		errlogPrintf( "Error: Unknown Exception\n" );
+        }
 }
 
 /*
@@ -1399,18 +1403,22 @@ done:
  * (currently supported max. - 1); see below...
  */
 
-#define IOCSH_DECL_WRAPPER_DO_CALL(args...)                                  \
-	do {                                                                     \
-		try {                                                                \
+#define IOCSH_DECL_WRAPPER_DO_CALL(args...)                                              \
+	do {                                                                             \
+		try {                                                                    \
 			EvalResult<R, PRINT>(                                            \
-				Guesser<R, type>().template getPrinter<func> ()              \
-            ), func( args ); /* <= magic 'operator,' */                      \
+				Guesser<R, type>().template getPrinter<func> ()          \
+            ), func( args ); /* <= magic 'operator,' */                                  \
 			if ( PRINT ) {                                                   \
 				Guesser<R, type>().template getArgPrinter<func>()( &ctx );   \
 			}                                                                \
-		} catch ( IocshDeclWrapper::ConversionError &e ) {                   \
+		} catch ( IocshDeclWrapper::ConversionError &e ) {                       \
 			errlogPrintf( "Error: Invalid Argument -- %s\n", e.what() );     \
-		}                                                                    \
+		} catch ( std::exception &e ) {                                          \
+			errlogPrintf( "Error: Exception -- %s\n", e.what() );            \
+		} catch ( ... ) {                                                        \
+			errlogPrintf( "Error: Unknown Exception\n" );                    \
+		}                                                                        \
 	} while (0)
 
 template <typename R, typename A0=void, typename A1=void, typename A2=void, typename A3=void, typename A4=void,
