@@ -18,6 +18,7 @@
 #include <complex>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <string.h>
 
 /* Helper templates that automate the generation of infamous boiler-plate code
  * which is necessary to wrap a user function for iocsh:
