@@ -777,6 +777,7 @@ template <typename T>
 iocshArg *makeArg(const char *aname = 0)
 {
 	iocshArg *rval = new iocshArg;
+	::memset( rval, 0, sizeof( *rval ) );
 
 	rval->name = 0;
 	Convert<T>::setArg( rval );
@@ -1088,9 +1089,10 @@ public:
 	FuncDef(const char *fname, int nargs)
 	{
 		def         = new iocshFuncDef;
+		::memset(def, 0, sizeof(*def));
 		def->name   = epicsStrDup( fname );
 		def->nargs  = nargs;
-        args        = new iocshArg*[def->nargs];
+	        args        = new iocshArg*[def->nargs];
 		def->arg    = args;
 
 		for ( int i = 0; i < def->nargs; i++ ) {
