@@ -18,6 +18,7 @@
 #include <complex>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <map>
 
 /* Helper templates that automate the generation of infamous boiler-plate code
  * which is necessary to wrap a user function for iocsh:
@@ -1172,6 +1173,25 @@ template <> struct DropBraces<void> {
 		return TypeHelper<R,A...>();
 	}
 
+	template <typename R, typename C, typename ...A>
+    struct MemberTypeHelper {
+		typedef R (C::*MemberFuncType)(A...);
+
+		template <R (C::*f)(A...), std::map<const std::string, C*> *m>
+		static R wrapper(const char *name, A...args)
+		{
+			C *obj = m->at( name );
+			return ((*obj).*f)(args...);
+		}
+	};
+
+	template <typename R, typename C, typename ...A>
+	static MemberTypeHelper<R, C, A...>
+	memberType(R (C::*f)(A...))
+	{
+		return MemberTypeHelper<R, C, A...>();
+	}
+
 	/*
 	 * Build a iocshFuncDef with associated iocArg structs.
 	 * If we were to wrap huge masses of user functions then
@@ -1215,6 +1235,13 @@ template <typename T, typename ...SIG> struct DropBraces<T(SIG...)> {
 	{
 		return DropBraces<void>::TypeHelper<R, SIG...>();
 	}
+
+	template <typename R, typename C>
+	static DropBraces<void>::MemberTypeHelper<R,C,SIG...> memberType(R (C::*f)(SIG...))
+	{
+		return DropBraces<void>::MemberTypeHelper<R, C, SIG...>();
+	}
+
 
 	template <typename R>
 	static iocshFuncDef  *buildArgs( const char *fname, R (*f)(SIG...), std::initializer_list<const char *> argNames )
@@ -2031,9 +2058,17 @@ static void registrarName() \
 } \
 epicsExportRegistrar( registrarName ); \
 
+#define IOCSH_MFUNC_WRAPPER(cls,memb,signature,map) (decltype(DropBraces<void signature>::memberType( &cls::memb )):: template wrapper< &cls::memb, mapPtr>)
+
 /* Convenience macros */
 #define IOCSH_FUNC_WRAP_OVLD( x, signature, nm, argHelps...) IOCSH_FUNC_REGISTER_WRAPPER(x, signature, nm, true,  argHelps)
 #define IOCSH_FUNC_WRAP(      x,                argHelps...) IOCSH_FUNC_REGISTER_WRAPPER(x,          , #x, true,  argHelps)
 #define IOCSH_FUNC_WRAP_QUIET(x,                argHelps...) IOCSH_FUNC_REGISTER_WRAPPER(x,          , #x, false, argHelps)
+
+#define IOCSH_MEMBER_WRAP_OVLD(map, cls, memb, signature, nm, argHelps...) \
+	IOCSH_FUNC_REGISTER_WRAPPER( IOCSH_MFUNC_WRAPPER( cls, memb, signature, map ), nm, true, argHelps )
+
+#define IOCSH_MEMBER_WRAP(     map, cls, memb,            nm, argHelps...) \
+	IOCSH_FUNC_REGISTER_WRAPPER( IOCSH_MFUNC_WRAPPER( cls, memb,          , map ), #cls"_"#memb, true, argHelps )
 
 #endif
