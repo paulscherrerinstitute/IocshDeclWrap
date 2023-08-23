@@ -405,6 +405,57 @@ which takes an additional argument `doPrintResult` which may be `true` or `false
 and which defines whether `iocsh` should print the return value (and modified
 arguments) of your functions.
 
+## Wrapping of C++ Classes
+
+Wrapping of C++ member functions is also possible.
+
+    IOCSH_MEMBER_WRAP( &objectMap, class_type, member, argHelps... )
+
+The member functions are wrapped in a C-function with the signature
+
+    wrapper( const char *objName, args... )
+
+where `args...` are the arguments taken by the member function.
+
+E.g., a class member
+
+    void clazz::doSometing(unsigned, double)
+
+is invoked from the `iocsh`:
+
+    clazz_doSomething objName 1 2.3.4.5
+
+## Object Registry/Map
+
+In order to properly associate the member functions with a C++ object the
+user must provide a map or registry where the C++ objects can be looked up
+by name. The map must have a `at(const std::string &)` or `at(const char *)`
+member which returns a pointer to the target object.
+E.g., for a user class `clazz` a
+
+    std::map<const std::string, clazz*> myMap;
+
+may be employed.
+
+Because the `iocsh` does not support supplying the wrapper functions with any
+context the map cannot be passed at run-time. Instead it is passed (under
+the hood) as a (non-type) template parameter and thus statically bound to the
+wrapper functions. This means, however, that the address of the map *must* be
+static:
+
+  - map cannot be allocated on the heap
+  - map address cannot be computed etc.
+
+### Overloaded Members
+
+Overloaded members are supported; the user must identify the desired variant
+with its argument types (consult the section about overloaded functions).
+The convenience macro
+
+    IOCSH_MEMBER_WRAP_OVLD( &objMap, class_type, member, signature, name, argHelps )
+
+can be used in this case.
+
 ## Examples
 
 Examples can be found in the test source file
