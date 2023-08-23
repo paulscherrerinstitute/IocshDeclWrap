@@ -2069,18 +2069,20 @@ static void registrarName() \
 } \
 epicsExportRegistrar( registrarName ); \
 
-#define IOCSH_MFUNC_WRAPPER(cls,memb,signature,map) decltype(DropBraces<void signature>::memberType( &cls::memb ))::template wrapper< &cls::memb, decltype(map), map>
-
-
 /* Convenience macros */
 #define IOCSH_FUNC_WRAP_OVLD( x, signature, nm, argHelps...) IOCSH_FUNC_REGISTER_WRAPPER(x, signature, nm, true,  argHelps)
 #define IOCSH_FUNC_WRAP(      x,                argHelps...) IOCSH_FUNC_REGISTER_WRAPPER(x,          , #x, true,  argHelps)
 #define IOCSH_FUNC_WRAP_QUIET(x,                argHelps...) IOCSH_FUNC_REGISTER_WRAPPER(x,          , #x, false, argHelps)
+
+#if __cplusplus >= 201103L
+#define IOCSH_MFUNC_WRAPPER(cls,memb,signature,map) decltype(DropBraces<void signature>::memberType( &cls::memb ))::template wrapper< &cls::memb, decltype(map), map>
 
 #define IOCSH_MEMBER_WRAP_OVLD(map, cls, memb, signature, nm, argHelps...) \
 	IOCSH_FUNC_REGISTER_WRAPPER( IOCSH_MFUNC_WRAPPER( cls, memb, signature, map ), , nm, true, "objName", argHelps )
 
 #define IOCSH_MEMBER_WRAP(     map, cls, memb,            nm, argHelps...) \
 	IOCSH_FUNC_REGISTER_WRAPPER( IOCSH_MFUNC_WRAPPER( cls, memb,          , map ), , #cls"_"#memb, true, "objName", argHelps )
+
+#endif
 
 #endif

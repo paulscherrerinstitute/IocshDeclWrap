@@ -425,6 +425,8 @@ is invoked from the `iocsh`:
 
     clazz_doSomething objName 1 2.3.4.5
 
+Note that wrapping C++ classes requires C++11 or later.
+
 ## Object Registry/Map
 
 In order to properly associate the member functions with a C++ object the
