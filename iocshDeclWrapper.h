@@ -2080,7 +2080,7 @@ epicsExportRegistrar( registrarName ); \
 #define IOCSH_MEMBER_WRAP_OVLD(map, cls, memb, signature, nm, argHelps...) \
 	IOCSH_FUNC_REGISTER_WRAPPER( IOCSH_MFUNC_WRAPPER( cls, memb, signature, map ), , nm, true, "objName", argHelps )
 
-#define IOCSH_MEMBER_WRAP(     map, cls, memb,            nm, argHelps...) \
+#define IOCSH_MEMBER_WRAP(     map, cls, memb,                argHelps...) \
 	IOCSH_FUNC_REGISTER_WRAPPER( IOCSH_MFUNC_WRAPPER( cls, memb,          , map ), , #cls"_"#memb, true, "objName", argHelps )
 
 #endif
